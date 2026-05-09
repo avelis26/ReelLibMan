@@ -5,6 +5,10 @@
 
 ---
 
+## 0. Dev Set Up
+
+- sudo pacman -S python-dotenv python-requests
+
 ## 1. Goals
 
 - Organize media library files at the folder/file level based on configurable structure templates
