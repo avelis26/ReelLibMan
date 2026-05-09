@@ -36,6 +36,7 @@ def get_movie_by_name(title):
     results = r.json().get("results", [])
     if not results:
         return None
+    # !!!  THIS FUNCTION ASSUMES THE FIRST MATCH IS CORRECT !!!
     # Got a match, now fetch full data using the TMDB ID
     return get_movie_by_id(results[0]["id"])
 

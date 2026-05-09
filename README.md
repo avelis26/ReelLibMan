@@ -183,5 +183,11 @@ Library ready for Emby / Jellyfin (online or air-gapped)
 
 ---
 
+## 11. Tech Debt
+
+- **/api/get_movie_tmdb_api_data.py** Line ~31 get_movie_by_name() assumes first match is correct
+
+---
+
 *This is a living document. Update before coding, not after.*
 Non-Goals (explicitly o
