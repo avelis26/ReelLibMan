@@ -7,7 +7,9 @@
 
 ## 0. Dev Set Up
 
-- sudo pacman -S python-dotenv python-requests
+```fish
+sudo pacman -S python-dotenv python-requests
+```
 
 ## 1. Goals
 
