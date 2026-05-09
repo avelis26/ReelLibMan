@@ -48,33 +48,32 @@ sudo pacman -S python-dotenv python-requests
 
 ```
 ReelLibMan/
-├── main.py                  # Entry point
+├── main.py                             # Entry point
 ├── config/
-│   └── settings.py          # User config loader/saver
+│   └── settings.py                     # User config loader/saver
 ├── core/
-│   ├── scanner.py           # File system scanner
-│   ├── matcher.py           # Match files to metadata
-│   ├── renamer.py           # Rename/move files per convention
-│   └── organizer.py         # Folder structure enforcement
+│   ├── scanner.py                      # File system scanner
+│   ├── matcher.py                      # Match files to metadata
+│   ├── renamer.py                      # Rename/move files per convention
+│   └── organizer.py                    # Folder structure enforcement
 ├── api/
-│   ├── tmdb.py              # TMDB API client
-│   └── tvdb.py              # TVDB API client
+│   ├── get_movie_tmdb_api_data.py      # TMDB API client
+│   └── tvdb.py                         # TVDB API client
 ├── cache/
-│   └── db.py                # SQLite cache layer (SQLAlchemy)
+│   └── db.py                           # SQLite cache layer (SQLAlchemy)
 ├── gui/
-│   ├── main_window.py       # Main application window
-│   ├── movie_view.py        # Movie library view
-│   └── settings_view.py     # Settings / config UI
+│   ├── main_window.py                  # Main application window
+│   ├── movie_view.py                   # Movie library view
+│   └── settings_view.py                # Settings / config UI
 ├── models/
-│   ├── movie.py             # Movie data model
-│   └── show.py              # TV show data model (Phase 2)
+│   ├── movie.py                        # Movie data model
+│   └── show.py                         # TV show data model (Phase 2)
 ├── utils/
-│   └── helpers.py           # Shared utility functions
+│   └── helpers.py                      # Shared utility functions
 ├── tests/
-│   └── ...                  # Unit tests
+│   └── ...                             # Unit tests
 ├── BLUEPRINT.md
 ├── README.md
-└── requirements.txt
 ```
 
 ---
