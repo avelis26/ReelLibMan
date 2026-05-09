@@ -10,19 +10,17 @@
 - Organize media library files at the folder/file level based on configurable structure templates
 - Rename files and folders to match configurable naming conventions
 - Fetch and cache metadata from online sources (TMDB, TVDB)
-- Produce a media library fully compatible with Emby / Jellyfin for air-gapped offline use
+- Produce a media library fully compatible with Emby / Jellyfin / Plex
 - Never require the internet after initial metadata fetch and cache
 - Remain lean — no bloat, no unnecessary features
+- Completely self contained install / setup with dependacies
 
 ---
 
-## 2. Non-Goals (explicitly out of scope)
+## 2. Out of Scope Goals
 
-- Built-in media playback
-- Streaming or remote access
-- Social / sharing features
-- Cloud sync
-- Anything Java-adjacent
+- CLI operations you could access via SSH for remote library management
+- WebUI (possibly with remote access) which would be just the normal GUI in the browser
 
 ---
 
@@ -181,3 +179,4 @@ Library ready for Emby / Jellyfin (online or air-gapped)
 ---
 
 *This is a living document. Update before coding, not after.*
+Non-Goals (explicitly o
