@@ -39,16 +39,16 @@ def get_movie_by_name(title):
     # Got a match, now fetch full data using the TMDB ID
     return get_movie_by_id(results[0]["id"])
 
+def print_results(result):
+    print(f"Found: {result['title']} ({result['release_date'][:4]}) — TMDB ID: {result['id']}")
+    print(json.dumps(result, indent=2))
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="TMDB API lookup")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--tmdb_id", help="Lookup movie by TMDB ID")
     group.add_argument("--movie_title", help="Lookup movie by title")
     args = parser.parse_args()
-
-    def print_results(result):
-        print(f"Found: {result['title']} ({result['release_date'][:4]}) — TMDB ID: {result['id']}")
-        print(json.dumps(result, indent=2))
 
     if args.tmdb_id:
         result = get_movie_by_id(args.tmdb_id)
