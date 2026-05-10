@@ -170,8 +170,14 @@ class MainWindow(QMainWindow):
         nav_layout.setContentsMargins(5, 10, 5, 10)
         nav_layout.setSpacing(4)
 
+        nav_actions = {
+            "Scan\nFile\nSystem": self._on_scan,
+        }
         for label, color, _ in NAV_BUTTONS:
-            nav_layout.addWidget(_nav_btn(label, color))
+            btn = _nav_btn(label, color)
+            if label in nav_actions:
+                btn.clicked.connect(nav_actions[label])
+            nav_layout.addWidget(btn)
 
         nav_layout.addStretch()
 
@@ -194,6 +200,7 @@ class MainWindow(QMainWindow):
         self.fs_search_input = QLineEdit()
         self.fs_search_input.setPlaceholderText("File system search box")
         fs_search_btn = QPushButton("Search")
+        fs_search_btn.clicked.connect(self._on_fs_search)
         fs_search_row.addWidget(self.fs_search_input)
         fs_search_row.addWidget(fs_search_btn)
         left_layout.addLayout(fs_search_row)
@@ -265,7 +272,7 @@ class MainWindow(QMainWindow):
 
         self.detail_poster = QLabel("Movie\nPoster")
         self.detail_poster.setFixedWidth(480)
-        self.detail_poster.setMinimumHeight(680)
+        self.detail_poster.setMinimumHeight(640)  # 2:3 ratio at 140px wide
         self.detail_poster.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
         self.detail_poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.detail_poster.setStyleSheet("background-color: #1a1a2e; border: 1px solid #333;")
@@ -322,6 +329,23 @@ class MainWindow(QMainWindow):
             tile_layout.addWidget(img)
             tile_layout.addWidget(meta)
             self.poster_grid.addWidget(tile, 0, i)
+
+    def _on_fs_search(self):
+        """Filter the file list based on search input."""
+        query = self.fs_search_input.text().strip().lower()
+        for i in range(self.file_list.count()):
+            item = self.file_list.item(i)
+            item.setHidden(query not in item.text().lower())
+
+    def _on_scan(self):
+        """Scan the file system and populate the file list."""
+        self.file_list.clear()
+        self.log("Scanning file system...")
+        results = scan_movies()
+        for m in results:
+            self.file_list.addItem(m["folder_name"])
+        self.log(f"Scan complete — {len(results)} movies found.")
+        self.status.showMessage(f"Scan complete — {len(results)} movies found.")
 
     def _on_search(self):
         """Placeholder search handler — logic to be wired in later phase."""
