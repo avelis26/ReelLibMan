@@ -190,5 +190,11 @@ Library ready for Emby / Jellyfin (online or air-gapped)
 
 ---
 
+## 12. Assets Used
+
+- **Meta Ai** used to create logo, headline, and other art assets
+
+---
+
 *This is a living document. Update before coding, not after.*
 Non-Goals (explicitly o
