@@ -1,7 +1,8 @@
 """
 ReelLibMan main application window.
 
-Provides the primary GUI for searching and fetching movie metadata.
+Provides the primary GUI shell for ReelLibMan.
+All panels are placeholders — logic will be wired in subsequent phases.
 
 Usage:
     Not called directly — launched by main.py.
@@ -13,18 +14,17 @@ import requests
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget,
     QVBoxLayout, QHBoxLayout, QLineEdit,
-    QPushButton, QLabel, QStatusBar, QSplashScreen
+    QPushButton, QLabel, QStatusBar, QSplashScreen,
+    QSizePolicy, QScrollArea, QFrame, QTabBar,
+    QTextEdit, QGridLayout, QListWidget, QProgressBar,
+    QSplitter
 )
-from PyQt6.QtGui import QPixmap, QIcon
-from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
-
-from api.get_movie_tmdb_api_data import get_movie_by_name
-from cache.insert_api_data import save_movie
+from PyQt6.QtGui import QPixmap, QIcon, QFont
+from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QSize
 
 ASSETS = os.path.join(os.path.dirname(__file__), "../assets")
 ICON_HEIGHT = 48
 POSTER_HEIGHT = 144
-POSTER_WIDTH = int(POSTER_HEIGHT * 16 / 9)
 TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original"
 
 
@@ -38,7 +38,6 @@ class SplashScreen(QSplashScreen):
         self._fade_in()
 
     def _fade_in(self):
-        """Fade in over 1 second."""
         self._anim = QPropertyAnimation(self, b"windowOpacity")
         self._anim.setDuration(1000)
         self._anim.setStartValue(0.0)
@@ -47,7 +46,6 @@ class SplashScreen(QSplashScreen):
         self._anim.start()
 
     def fade_out(self, on_done):
-        """Fade out over 2 seconds then call on_done."""
         self._anim = QPropertyAnimation(self, b"windowOpacity")
         self._anim.setDuration(2000)
         self._anim.setStartValue(1.0)
@@ -63,116 +61,244 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("ReelLibMan")
-        self.setMinimumWidth(600)
-        self._set_icon()
+        self.setMinimumSize(1280, 720)
+        self.setWindowIcon(QIcon(os.path.join(ASSETS, "ReelLibMan_Icon.png")))
         self._build_ui()
 
-    def _set_icon(self):
-        """Set the window/taskbar icon."""
-        self.setWindowIcon(QIcon(os.path.join(ASSETS, "ReelLibMan_Icon.png")))
-
     def _build_ui(self):
-        """Construct and arrange UI elements."""
-        central = QWidget()
-        self.setCentralWidget(central)
-        layout = QVBoxLayout(central)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(12)
+        root = QWidget()
+        self.setCentralWidget(root)
+        root_layout = QVBoxLayout(root)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
 
-        # Header row — icon + headline
-        header_layout = QHBoxLayout()
-        header_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        # ── TOP BAR ──────────────────────────────────────────────────────────
+        top_bar = QWidget()
+        top_bar.setFixedHeight(80)
+        top_bar.setStyleSheet("background-color: #1a1a2e;")
+        top_layout = QHBoxLayout(top_bar)
+        top_layout.setContentsMargins(10, 5, 10, 5)
 
-        icon_label = QLabel()
-        icon_pixmap = QPixmap(os.path.join(ASSETS, "ReelLibMan_Icon.png"))
-        icon_label.setPixmap(icon_pixmap.scaledToHeight(ICON_HEIGHT, Qt.TransformationMode.SmoothTransformation))
+        # Icon + headline
+        icon_lbl = QLabel()
+        icon_pix = QPixmap(os.path.join(ASSETS, "ReelLibMan_Icon.png"))
+        icon_lbl.setPixmap(icon_pix.scaledToHeight(ICON_HEIGHT, Qt.TransformationMode.SmoothTransformation))
+        headline_lbl = QLabel()
+        headline_pix = QPixmap(os.path.join(ASSETS, "ReelLibMan_Headline.png"))
+        headline_lbl.setPixmap(headline_pix.scaledToHeight(ICON_HEIGHT, Qt.TransformationMode.SmoothTransformation))
+        version_lbl = QLabel("v1.0.0 - GIT")
+        version_lbl.setStyleSheet("color: #888; font-size: 11px;")
+        version_lbl.setAlignment(Qt.AlignmentFlag.AlignBottom)
 
-        headline_label = QLabel()
-        headline_pixmap = QPixmap(os.path.join(ASSETS, "ReelLibMan_Headline.png"))
-        headline_label.setPixmap(headline_pixmap.scaledToHeight(ICON_HEIGHT, Qt.TransformationMode.SmoothTransformation))
+        brand_layout = QVBoxLayout()
+        brand_inner = QHBoxLayout()
+        brand_inner.addWidget(icon_lbl)
+        brand_inner.addWidget(headline_lbl)
+        brand_inner.addWidget(version_lbl)
+        brand_inner.addStretch()
+        brand_layout.addLayout(brand_inner)
+        top_layout.addLayout(brand_layout)
 
-        header_layout.addWidget(icon_label)
-        header_layout.addWidget(headline_label)
-        header_layout.addStretch()
-        layout.addLayout(header_layout)
+        # Movies / TV Shows tabs
+        tabs_layout = QHBoxLayout()
+        tabs_layout.setSpacing(0)
+        self.btn_movies = QPushButton("🎬  MOVIES")
+        self.btn_movies.setFixedHeight(56)
+        self.btn_movies.setStyleSheet("font-size: 15px; font-weight: bold;")
+        self.btn_tv = QPushButton("📺  TV SHOWS")
+        self.btn_tv.setFixedHeight(56)
+        self.btn_tv.setStyleSheet("font-size: 15px; font-weight: bold;")
+        tabs_layout.addWidget(self.btn_movies)
+        tabs_layout.addWidget(self.btn_tv)
+        top_layout.addLayout(tabs_layout)
 
-        # Search row
-        search_layout = QHBoxLayout()
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Enter movie title...")
-        self.search_input.returnPressed.connect(self._on_search)
+        # Activity log window
+        self.activity_log = QTextEdit()
+        self.activity_log.setReadOnly(True)
+        self.activity_log.setFixedHeight(66)
+        self.activity_log.setStyleSheet("background-color: #0d0d1a; color: #00ff99; font-family: monospace; font-size: 11px;")
+        self.activity_log.setPlaceholderText("App activity will appear here...")
+        top_layout.addWidget(self.activity_log)
 
-        self.search_btn = QPushButton("Search")
-        self.search_btn.clicked.connect(self._on_search)
+        root_layout.addWidget(top_bar)
 
-        search_layout.addWidget(self.search_input)
-        search_layout.addWidget(self.search_btn)
-        layout.addLayout(search_layout)
+        # ── MIDDLE SECTION ───────────────────────────────────────────────────
+        middle = QWidget()
+        middle_layout = QHBoxLayout(middle)
+        middle_layout.setContentsMargins(0, 0, 0, 0)
+        middle_layout.setSpacing(0)
 
-        # Poster panel
-        self.poster_panel = QHBoxLayout()
-        self.poster_panel.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self.poster_placeholder = QLabel()
-        self.poster_placeholder.setFixedSize(POSTER_WIDTH, POSTER_HEIGHT)
-        self.poster_placeholder.setStyleSheet("background-color: #1a1a2e; border: 1px solid #333;")
-        self.poster_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.poster_placeholder.setText("No results yet")
-        self.poster_panel.addWidget(self.poster_placeholder)
-        layout.addLayout(self.poster_panel)
-        self.result_label = QLabel("")
-        self.result_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.result_label)
+        # ── LEFT NAV ─────────────────────────────────────────────────────────
+        nav = QWidget()
+        nav.setFixedWidth(110)
+        nav.setStyleSheet("background-color: #12122a;")
+        nav_layout = QVBoxLayout(nav)
+        nav_layout.setContentsMargins(5, 10, 5, 10)
+        nav_layout.setSpacing(4)
 
-        # Status bar
+        for label in ["Scan\nFile\nSystem", "Scrape\nWeb\nAPI", "Manually\nEdit\nMetadata",
+                      "Move\nAnd\nRename\nFiles", "Check\nFor\nUpdates", "Settings", "Quit"]:
+            btn = QPushButton(label)
+            btn.setStyleSheet("text-align: center; padding: 6px;")
+            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            nav_layout.addWidget(btn)
+
+        nav_layout.addStretch()
+        middle_layout.addWidget(nav)
+
+        # ── MAIN CONTENT SPLITTER ─────────────────────────────────────────────
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+
+        # Left panel — file system list
+        left_panel = QWidget()
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(8, 8, 8, 8)
+        left_layout.setSpacing(6)
+
+        fs_search_row = QHBoxLayout()
+        self.fs_search_input = QLineEdit()
+        self.fs_search_input.setPlaceholderText("File system search box")
+        fs_search_btn = QPushButton("Search")
+        fs_search_row.addWidget(self.fs_search_input)
+        fs_search_row.addWidget(fs_search_btn)
+        left_layout.addLayout(fs_search_row)
+
+        self.file_list = QListWidget()
+        self.file_list.addItem("[ File system scan results will appear here ]")
+        left_layout.addWidget(self.file_list)
+
+        splitter.addWidget(left_panel)
+
+        # Right panel — scrape results
+        right_panel = QWidget()
+        right_layout = QVBoxLayout(right_panel)
+        right_layout.setContentsMargins(8, 8, 8, 8)
+        right_layout.setSpacing(6)
+
+        # Updates banner
+        updates_lbl = QLabel("App updates from app author could be displayed here")
+        updates_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        updates_lbl.setStyleSheet("border: 1px solid #333; padding: 4px; color: #888;")
+        right_layout.addWidget(updates_lbl)
+
+        # Manual search
+        manual_search_row = QHBoxLayout()
+        self.manual_search_input = QLineEdit()
+        self.manual_search_input.setPlaceholderText("Manual movie title search box")
+        manual_search_btn = QPushButton("Search")
+        manual_search_btn.clicked.connect(self._on_search)
+        self.manual_search_input.returnPressed.connect(self._on_search)
+        manual_search_row.addWidget(self.manual_search_input)
+        manual_search_row.addWidget(manual_search_btn)
+        right_layout.addLayout(manual_search_row)
+
+        # Poster grid (scrollable)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("border: 1px solid #333;")
+        self.poster_grid_widget = QWidget()
+        self.poster_grid = QGridLayout(self.poster_grid_widget)
+        self.poster_grid.setSpacing(6)
+        self._populate_placeholder_posters(8)
+        scroll.setWidget(self.poster_grid_widget)
+        right_layout.addWidget(scroll)
+
+        # Progress + action buttons
+        action_row = QHBoxLayout()
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setValue(0)
+        self.progress_bar.setFormat("Progress bar and HTTP API call status display")
+        self.progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        rollback_btn = QPushButton("Rollback")
+        accept_btn = QPushButton("Accept / Write Changes")
+        action_row.addWidget(self.progress_bar, 3)
+        action_row.addWidget(rollback_btn, 1)
+        action_row.addWidget(accept_btn, 1)
+        right_layout.addLayout(action_row)
+
+        splitter.addWidget(right_panel)
+        splitter.setSizes([400, 900])
+        middle_layout.addWidget(splitter)
+        root_layout.addWidget(middle, 1)
+
+        # ── DETAIL PANEL ─────────────────────────────────────────────────────
+        detail = QWidget()
+        detail.setFixedHeight(220)
+        detail.setStyleSheet("background-color: #12122a; border-top: 1px solid #333;")
+        detail_layout = QHBoxLayout(detail)
+        detail_layout.setContentsMargins(8, 8, 8, 8)
+        detail_layout.setSpacing(8)
+
+        # Poster thumb
+        self.detail_poster = QLabel("Movie\nPoster")
+        self.detail_poster.setFixedSize(140, 200)
+        self.detail_poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.detail_poster.setStyleSheet("background-color: #1a1a2e; border: 1px solid #333;")
+        detail_layout.addWidget(self.detail_poster)
+
+        # Right side of detail
+        detail_right = QVBoxLayout()
+
+        # Filename / path
+        self.detail_filename = QLabel("File name of selected movie")
+        self.detail_filename.setStyleSheet("color: #ccc; font-weight: bold;")
+        self.detail_filepath = QLabel("Full file system path of selected movie file")
+        self.detail_filepath.setStyleSheet("color: #888; font-size: 11px;")
+        detail_right.addWidget(self.detail_filename)
+        detail_right.addWidget(self.detail_filepath)
+
+        # Metadata display
+        self.detail_metadata = QTextEdit()
+        self.detail_metadata.setReadOnly(True)
+        self.detail_metadata.setPlaceholderText("Metadata of selected movie will appear here (NFO). Click 'Manually Edit Metadata' to edit.")
+        self.detail_metadata.setStyleSheet("background-color: #0d0d1a; color: #ccc; font-size: 11px;")
+        detail_right.addWidget(self.detail_metadata)
+
+        # Art strip
+        self.detail_art = QLabel("Additional art: banner, clearlogo, fanart — displayed here if found on file system")
+        self.detail_art.setFixedHeight(36)
+        self.detail_art.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.detail_art.setStyleSheet("background-color: #1a1a2e; border: 1px solid #333; color: #888; font-size: 11px;")
+        detail_right.addWidget(self.detail_art)
+
+        detail_layout.addLayout(detail_right)
+        root_layout.addWidget(detail)
+
+        # ── STATUS BAR ───────────────────────────────────────────────────────
         self.status = QStatusBar()
+        self.status.setStyleSheet("font-size: 11px; color: #888;")
         self.setStatusBar(self.status)
-        self.status.showMessage("Ready")
+        self.status.showMessage("Ready  |  CPU: --  |  RAM: --  |  Storage: --  |  DB: --  |  API Calls: 0  |  Internet: --")
 
-    def _load_poster(self, poster_path):
-        """Fetch and display the movie poster from TMDB."""
-        if not poster_path:
-            self.poster_placeholder.setText("No poster available")
-            return
-        try:
-            url = f"{TMDB_IMAGE_BASE}{poster_path}"
-            resp = requests.get(url, timeout=10)
-            resp.raise_for_status()
-            pixmap = QPixmap()
-            pixmap.loadFromData(resp.content)
-            self.poster_placeholder.setPixmap(
-                pixmap.scaledToHeight(POSTER_HEIGHT, Qt.TransformationMode.SmoothTransformation)
-            )
-            self.poster_placeholder.setFixedSize(
-                pixmap.scaledToHeight(POSTER_HEIGHT, Qt.TransformationMode.SmoothTransformation).width(),
-                POSTER_HEIGHT
-            )
-        except Exception as e:
-            self.poster_placeholder.setText("Failed to load poster")
-            self.status.showMessage(f"Poster error: {e}")
+    def _populate_placeholder_posters(self, count):
+        """Fill poster grid with placeholder tiles."""
+        for i in range(count):
+            tile = QWidget()
+            tile_layout = QVBoxLayout(tile)
+            tile_layout.setSpacing(2)
+            img = QLabel(f"Scrape Result {i+1:02d}\nPoster Image")
+            img.setFixedSize(140, 200)
+            img.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            img.setStyleSheet("background-color: #1a1a2e; border: 1px solid #444; color: #888; font-size: 10px;")
+            meta = QLabel(f"Scrape Result {i+1:02d}\nMetadata")
+            meta.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            meta.setStyleSheet("color: #888; font-size: 10px;")
+            tile_layout.addWidget(img)
+            tile_layout.addWidget(meta)
+            self.poster_grid.addWidget(tile, 0, i)
 
     def _on_search(self):
-        """Fetch metadata and save to DB when search is triggered."""
-        title = self.search_input.text().strip()
+        """Placeholder search handler — logic to be wired in later phase."""
+        title = self.manual_search_input.text().strip()
         if not title:
             self.status.showMessage("Please enter a movie title.")
             return
-
         self.status.showMessage(f"Searching for: {title}...")
-        self.search_btn.setEnabled(False)
+        self.activity_log.append(f"> Searching TMDB for: {title}")
 
-        data = get_movie_by_name(title)
-
-        if not data:
-            self.result_label.setText("No results found.")
-            self.status.showMessage("Search complete — no results.")
-        else:
-            save_movie(data)
-            year = data.get("release_date", "")[:4]
-            self.result_label.setText(f"✓ Saved: {data['title']} ({year}) — TMDB ID: {data['id']}")
-            self.status.showMessage("Done.")
-            self._load_poster(data.get("poster_path"))
-
-        self.search_btn.setEnabled(True)
+    def log(self, msg):
+        """Append a message to the activity log."""
+        self.activity_log.append(f"> {msg}")
 
 
 def launch():
@@ -183,14 +309,12 @@ def launch():
     splash.show()
     app.processEvents()
 
-    # Build main window while splash is visible
     window = MainWindow()
 
     def show_main():
         splash.finish(window)
         window.show()
 
-    # Wait 1.5s (fade-in completes) then start fade-out into main window
     QTimer.singleShot(1500, lambda: splash.fade_out(show_main))
 
     sys.exit(app.exec())
