@@ -9,6 +9,7 @@ Usage:
 
 import os
 import sys
+import requests
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget,
     QVBoxLayout, QHBoxLayout, QLineEdit,
@@ -22,6 +23,9 @@ from cache.insert_api_data import save_movie
 
 ASSETS = os.path.join(os.path.dirname(__file__), "../assets")
 ICON_HEIGHT = 48
+POSTER_HEIGHT = 144
+POSTER_WIDTH = int(POSTER_HEIGHT * 16 / 9)
+TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original"
 
 
 class SplashScreen(QSplashScreen):
@@ -105,7 +109,16 @@ class MainWindow(QMainWindow):
         search_layout.addWidget(self.search_btn)
         layout.addLayout(search_layout)
 
-        # Result label
+        # Poster panel
+        self.poster_panel = QHBoxLayout()
+        self.poster_panel.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.poster_placeholder = QLabel()
+        self.poster_placeholder.setFixedSize(POSTER_WIDTH, POSTER_HEIGHT)
+        self.poster_placeholder.setStyleSheet("background-color: #1a1a2e; border: 1px solid #333;")
+        self.poster_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.poster_placeholder.setText("No results yet")
+        self.poster_panel.addWidget(self.poster_placeholder)
+        layout.addLayout(self.poster_panel)
         self.result_label = QLabel("")
         self.result_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.result_label)
@@ -114,6 +127,28 @@ class MainWindow(QMainWindow):
         self.status = QStatusBar()
         self.setStatusBar(self.status)
         self.status.showMessage("Ready")
+
+    def _load_poster(self, poster_path):
+        """Fetch and display the movie poster from TMDB."""
+        if not poster_path:
+            self.poster_placeholder.setText("No poster available")
+            return
+        try:
+            url = f"{TMDB_IMAGE_BASE}{poster_path}"
+            resp = requests.get(url, timeout=10)
+            resp.raise_for_status()
+            pixmap = QPixmap()
+            pixmap.loadFromData(resp.content)
+            self.poster_placeholder.setPixmap(
+                pixmap.scaledToHeight(POSTER_HEIGHT, Qt.TransformationMode.SmoothTransformation)
+            )
+            self.poster_placeholder.setFixedSize(
+                pixmap.scaledToHeight(POSTER_HEIGHT, Qt.TransformationMode.SmoothTransformation).width(),
+                POSTER_HEIGHT
+            )
+        except Exception as e:
+            self.poster_placeholder.setText("Failed to load poster")
+            self.status.showMessage(f"Poster error: {e}")
 
     def _on_search(self):
         """Fetch metadata and save to DB when search is triggered."""
@@ -135,6 +170,7 @@ class MainWindow(QMainWindow):
             year = data.get("release_date", "")[:4]
             self.result_label.setText(f"✓ Saved: {data['title']} ({year}) — TMDB ID: {data['id']}")
             self.status.showMessage("Done.")
+            self._load_poster(data.get("poster_path"))
 
         self.search_btn.setEnabled(True)
 
