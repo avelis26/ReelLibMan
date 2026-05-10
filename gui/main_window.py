@@ -7,16 +7,50 @@ Usage:
     Not called directly — launched by main.py.
 """
 
+import os
 import sys
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget,
     QVBoxLayout, QHBoxLayout, QLineEdit,
-    QPushButton, QLabel, QStatusBar
+    QPushButton, QLabel, QStatusBar, QSplashScreen
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QPixmap, QIcon
+from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
 
 from api.get_movie_tmdb_api_data import get_movie_by_name
 from cache.insert_api_data import save_movie
+
+ASSETS = os.path.join(os.path.dirname(__file__), "../assets")
+ICON_HEIGHT = 48
+
+
+class SplashScreen(QSplashScreen):
+    """Splash screen with fade-in and fade-out animations."""
+
+    def __init__(self):
+        pixmap = QPixmap(os.path.join(ASSETS, "ReelLibMan_Splash.png"))
+        super().__init__(pixmap, Qt.WindowType.WindowStaysOnTopHint)
+        self.setWindowOpacity(0.0)
+        self._fade_in()
+
+    def _fade_in(self):
+        """Fade in over 1 second."""
+        self._anim = QPropertyAnimation(self, b"windowOpacity")
+        self._anim.setDuration(1000)
+        self._anim.setStartValue(0.0)
+        self._anim.setEndValue(1.0)
+        self._anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        self._anim.start()
+
+    def fade_out(self, on_done):
+        """Fade out over 2 seconds then call on_done."""
+        self._anim = QPropertyAnimation(self, b"windowOpacity")
+        self._anim.setDuration(2000)
+        self._anim.setStartValue(1.0)
+        self._anim.setEndValue(0.0)
+        self._anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        self._anim.finished.connect(on_done)
+        self._anim.start()
 
 
 class MainWindow(QMainWindow):
@@ -25,8 +59,13 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("ReelLibMan")
-        self.setMinimumWidth(500)
+        self.setMinimumWidth(600)
+        self._set_icon()
         self._build_ui()
+
+    def _set_icon(self):
+        """Set the window/taskbar icon."""
+        self.setWindowIcon(QIcon(os.path.join(ASSETS, "ReelLibMan_Icon.png")))
 
     def _build_ui(self):
         """Construct and arrange UI elements."""
@@ -35,6 +74,23 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(central)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(12)
+
+        # Header row — icon + headline
+        header_layout = QHBoxLayout()
+        header_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
+        icon_label = QLabel()
+        icon_pixmap = QPixmap(os.path.join(ASSETS, "ReelLibMan_Icon.png"))
+        icon_label.setPixmap(icon_pixmap.scaledToHeight(ICON_HEIGHT, Qt.TransformationMode.SmoothTransformation))
+
+        headline_label = QLabel()
+        headline_pixmap = QPixmap(os.path.join(ASSETS, "ReelLibMan_Headline.png"))
+        headline_label.setPixmap(headline_pixmap.scaledToHeight(ICON_HEIGHT, Qt.TransformationMode.SmoothTransformation))
+
+        header_layout.addWidget(icon_label)
+        header_layout.addWidget(headline_label)
+        header_layout.addStretch()
+        layout.addLayout(header_layout)
 
         # Search row
         search_layout = QHBoxLayout()
@@ -84,8 +140,21 @@ class MainWindow(QMainWindow):
 
 
 def launch():
-    """Initialize and launch the PyQt6 application."""
+    """Initialize splash, then launch the main window."""
     app = QApplication(sys.argv)
+
+    splash = SplashScreen()
+    splash.show()
+    app.processEvents()
+
+    # Build main window while splash is visible
     window = MainWindow()
-    window.show()
+
+    def show_main():
+        splash.finish(window)
+        window.show()
+
+    # Wait 1.5s (fade-in completes) then start fade-out into main window
+    QTimer.singleShot(1500, lambda: splash.fade_out(show_main))
+
     sys.exit(app.exec())
