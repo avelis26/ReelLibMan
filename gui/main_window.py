@@ -264,7 +264,9 @@ class MainWindow(QMainWindow):
         detail_layout.setSpacing(8)
 
         self.detail_poster = QLabel("Movie\nPoster")
-        self.detail_poster.setFixedWidth(140)
+        self.detail_poster.setFixedWidth(480)
+        self.detail_poster.setMinimumHeight(680)
+        self.detail_poster.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
         self.detail_poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.detail_poster.setStyleSheet("background-color: #1a1a2e; border: 1px solid #333;")
         detail_layout.addWidget(self.detail_poster)
@@ -284,7 +286,7 @@ class MainWindow(QMainWindow):
         detail_right.addWidget(self.detail_metadata)
 
         self.detail_art = QLabel("Additional art: banner, clearlogo, fanart — displayed here if found on file system")
-        self.detail_art.setFixedHeight(36)
+        self.detail_art.setFixedHeight(90)
         self.detail_art.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.detail_art.setStyleSheet("background-color: #1a1a2e; border: 1px solid #333; color: #888; font-size: 11px;")
         detail_right.addWidget(self.detail_art)
