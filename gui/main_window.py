@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QPixmap, QIcon, QFont
 from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
+from core.scanner import scan_movies
 
 ASSETS = os.path.join(os.path.dirname(__file__), "../assets")
 ICON_HEIGHT = 48
