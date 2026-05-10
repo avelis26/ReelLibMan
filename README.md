@@ -9,6 +9,7 @@
 
 ```fish
 sudo pacman -S python-dotenv python-requests
+sudo pacman -S python-pyqt6
 ```
 
 ## 1. Goals
