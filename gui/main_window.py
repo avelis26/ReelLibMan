@@ -15,17 +15,34 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget,
     QVBoxLayout, QHBoxLayout, QLineEdit,
     QPushButton, QLabel, QStatusBar, QSplashScreen,
-    QSizePolicy, QScrollArea, QFrame, QTabBar,
+    QSizePolicy, QScrollArea, QFrame,
     QTextEdit, QGridLayout, QListWidget, QProgressBar,
     QSplitter
 )
 from PyQt6.QtGui import QPixmap, QIcon, QFont
-from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QSize
+from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
 
 ASSETS = os.path.join(os.path.dirname(__file__), "../assets")
 ICON_HEIGHT = 48
 POSTER_HEIGHT = 144
 TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original"
+
+# Nav button colors: label, text color, border color
+NAV_BUTTONS = [
+    ("Scan\nFile\nSystem",          "#00ccff", "#00ccff"),
+    ("Scrape\nWeb\nAPI",            "#00ff99", "#00ff99"),
+    ("Manually\nEdit\nMetadata",    "#ff9900", "#ff9900"),
+    ("Move\nAnd\nRename\nFiles",    "#ff66cc", "#ff66cc"),
+]
+NAV_BUTTONS_BOTTOM = [
+    ("Check\nFor\nUpdates",         "#aaaaff", "#aaaaff"),
+    ("Settings",                    "#ffff66", "#ffff66"),
+    ("Quit",                        "#ff4444", "#ff4444"),
+]
+
+# Map panel outlines to matching nav button colors
+COLOR_FS   = "#00ccff"   # Scan File System
+COLOR_SCRAPE = "#00ff99" # Scrape Web API
 
 
 class SplashScreen(QSplashScreen):
@@ -55,6 +72,25 @@ class SplashScreen(QSplashScreen):
         self._anim.start()
 
 
+def _nav_btn(label, color):
+    """Create a styled nav button."""
+    btn = QPushButton(label)
+    btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+    btn.setStyleSheet(f"""
+        QPushButton {{
+            color: {color};
+            border: 1px solid {color};
+            padding: 6px;
+            text-align: center;
+            background-color: #12122a;
+        }}
+        QPushButton:hover {{
+            background-color: #1e1e3a;
+        }}
+    """)
+    return btn
+
+
 class MainWindow(QMainWindow):
     """Primary application window for ReelLibMan."""
 
@@ -79,7 +115,7 @@ class MainWindow(QMainWindow):
         top_layout = QHBoxLayout(top_bar)
         top_layout.setContentsMargins(10, 5, 10, 5)
 
-        # Icon + headline
+        # Icon + headline + version
         icon_lbl = QLabel()
         icon_pix = QPixmap(os.path.join(ASSETS, "ReelLibMan_Icon.png"))
         icon_lbl.setPixmap(icon_pix.scaledToHeight(ICON_HEIGHT, Qt.TransformationMode.SmoothTransformation))
@@ -90,39 +126,37 @@ class MainWindow(QMainWindow):
         version_lbl.setStyleSheet("color: #888; font-size: 11px;")
         version_lbl.setAlignment(Qt.AlignmentFlag.AlignBottom)
 
-        brand_layout = QVBoxLayout()
         brand_inner = QHBoxLayout()
         brand_inner.addWidget(icon_lbl)
         brand_inner.addWidget(headline_lbl)
         brand_inner.addWidget(version_lbl)
         brand_inner.addStretch()
-        brand_layout.addLayout(brand_inner)
-        top_layout.addLayout(brand_layout)
+        top_layout.addLayout(brand_inner)
 
-        # Movies / TV Shows tabs
-        tabs_layout = QHBoxLayout()
-        tabs_layout.setSpacing(0)
+        # Movies / TV Shows tabs — 3x wider
         self.btn_movies = QPushButton("🎬  MOVIES")
-        self.btn_movies.setFixedHeight(56)
+        self.btn_movies.setFixedSize(300, 56)
         self.btn_movies.setStyleSheet("font-size: 15px; font-weight: bold;")
         self.btn_tv = QPushButton("📺  TV SHOWS")
-        self.btn_tv.setFixedHeight(56)
+        self.btn_tv.setFixedSize(300, 56)
         self.btn_tv.setStyleSheet("font-size: 15px; font-weight: bold;")
-        tabs_layout.addWidget(self.btn_movies)
-        tabs_layout.addWidget(self.btn_tv)
-        top_layout.addLayout(tabs_layout)
+        top_layout.addWidget(self.btn_movies)
+        top_layout.addWidget(self.btn_tv)
 
-        # Activity log window
+        # Activity log
         self.activity_log = QTextEdit()
         self.activity_log.setReadOnly(True)
-        self.activity_log.setFixedHeight(66)
         self.activity_log.setStyleSheet("background-color: #0d0d1a; color: #00ff99; font-family: monospace; font-size: 11px;")
         self.activity_log.setPlaceholderText("App activity will appear here...")
-        top_layout.addWidget(self.activity_log)
+        top_layout.addWidget(self.activity_log, 1)
 
         root_layout.addWidget(top_bar)
 
-        # ── MIDDLE SECTION ───────────────────────────────────────────────────
+        # ── MIDDLE + DETAIL VERTICAL SPLITTER ────────────────────────────────
+        v_splitter = QSplitter(Qt.Orientation.Vertical)
+        v_splitter.setChildrenCollapsible(False)
+
+        # ── MIDDLE ROW ───────────────────────────────────────────────────────
         middle = QWidget()
         middle_layout = QHBoxLayout(middle)
         middle_layout.setContentsMargins(0, 0, 0, 0)
@@ -136,21 +170,22 @@ class MainWindow(QMainWindow):
         nav_layout.setContentsMargins(5, 10, 5, 10)
         nav_layout.setSpacing(4)
 
-        for label in ["Scan\nFile\nSystem", "Scrape\nWeb\nAPI", "Manually\nEdit\nMetadata",
-                      "Move\nAnd\nRename\nFiles", "Check\nFor\nUpdates", "Settings", "Quit"]:
-            btn = QPushButton(label)
-            btn.setStyleSheet("text-align: center; padding: 6px;")
-            btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-            nav_layout.addWidget(btn)
+        for label, color, _ in NAV_BUTTONS:
+            nav_layout.addWidget(_nav_btn(label, color))
 
         nav_layout.addStretch()
+
+        for label, color, _ in NAV_BUTTONS_BOTTOM:
+            nav_layout.addWidget(_nav_btn(label, color))
+
         middle_layout.addWidget(nav)
 
-        # ── MAIN CONTENT SPLITTER ─────────────────────────────────────────────
-        splitter = QSplitter(Qt.Orientation.Horizontal)
+        # ── MAIN CONTENT SPLITTER (horizontal) ───────────────────────────────
+        h_splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # Left panel — file system list
-        left_panel = QWidget()
+        left_panel = QFrame()
+        left_panel.setStyleSheet(f"border: 2px solid {COLOR_FS};")
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(8, 8, 8, 8)
         left_layout.setSpacing(6)
@@ -164,27 +199,28 @@ class MainWindow(QMainWindow):
         left_layout.addLayout(fs_search_row)
 
         self.file_list = QListWidget()
+        self.file_list.setStyleSheet("border: none;")
         self.file_list.addItem("[ File system scan results will appear here ]")
         left_layout.addWidget(self.file_list)
 
-        splitter.addWidget(left_panel)
+        h_splitter.addWidget(left_panel)
 
         # Right panel — scrape results
-        right_panel = QWidget()
+        right_panel = QFrame()
+        right_panel.setStyleSheet(f"border: 2px solid {COLOR_SCRAPE};")
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(8, 8, 8, 8)
         right_layout.setSpacing(6)
 
-        # Updates banner
         updates_lbl = QLabel("App updates from app author could be displayed here")
         updates_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        updates_lbl.setStyleSheet("border: 1px solid #333; padding: 4px; color: #888;")
+        updates_lbl.setStyleSheet(f"border: 1px solid #333; padding: 4px; color: #888;")
         right_layout.addWidget(updates_lbl)
 
-        # Manual search
         manual_search_row = QHBoxLayout()
         self.manual_search_input = QLineEdit()
         self.manual_search_input.setPlaceholderText("Manual movie title search box")
+        self.manual_search_input.setStyleSheet("border: 1px solid #555;")
         manual_search_btn = QPushButton("Search")
         manual_search_btn.clicked.connect(self._on_search)
         self.manual_search_input.returnPressed.connect(self._on_search)
@@ -192,10 +228,9 @@ class MainWindow(QMainWindow):
         manual_search_row.addWidget(manual_search_btn)
         right_layout.addLayout(manual_search_row)
 
-        # Poster grid (scrollable)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("border: 1px solid #333;")
+        scroll.setStyleSheet("border: none;")
         self.poster_grid_widget = QWidget()
         self.poster_grid = QGridLayout(self.poster_grid_widget)
         self.poster_grid.setSpacing(6)
@@ -203,7 +238,6 @@ class MainWindow(QMainWindow):
         scroll.setWidget(self.poster_grid_widget)
         right_layout.addWidget(scroll)
 
-        # Progress + action buttons
         action_row = QHBoxLayout()
         self.progress_bar = QProgressBar()
         self.progress_bar.setValue(0)
@@ -216,30 +250,26 @@ class MainWindow(QMainWindow):
         action_row.addWidget(accept_btn, 1)
         right_layout.addLayout(action_row)
 
-        splitter.addWidget(right_panel)
-        splitter.setSizes([400, 900])
-        middle_layout.addWidget(splitter)
-        root_layout.addWidget(middle, 1)
+        h_splitter.addWidget(right_panel)
+        h_splitter.setSizes([400, 900])
+        middle_layout.addWidget(h_splitter)
+
+        v_splitter.addWidget(middle)
 
         # ── DETAIL PANEL ─────────────────────────────────────────────────────
         detail = QWidget()
-        detail.setFixedHeight(220)
         detail.setStyleSheet("background-color: #12122a; border-top: 1px solid #333;")
         detail_layout = QHBoxLayout(detail)
         detail_layout.setContentsMargins(8, 8, 8, 8)
         detail_layout.setSpacing(8)
 
-        # Poster thumb
         self.detail_poster = QLabel("Movie\nPoster")
-        self.detail_poster.setFixedSize(140, 200)
+        self.detail_poster.setFixedWidth(140)
         self.detail_poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.detail_poster.setStyleSheet("background-color: #1a1a2e; border: 1px solid #333;")
         detail_layout.addWidget(self.detail_poster)
 
-        # Right side of detail
         detail_right = QVBoxLayout()
-
-        # Filename / path
         self.detail_filename = QLabel("File name of selected movie")
         self.detail_filename.setStyleSheet("color: #ccc; font-weight: bold;")
         self.detail_filepath = QLabel("Full file system path of selected movie file")
@@ -247,14 +277,12 @@ class MainWindow(QMainWindow):
         detail_right.addWidget(self.detail_filename)
         detail_right.addWidget(self.detail_filepath)
 
-        # Metadata display
         self.detail_metadata = QTextEdit()
         self.detail_metadata.setReadOnly(True)
         self.detail_metadata.setPlaceholderText("Metadata of selected movie will appear here (NFO). Click 'Manually Edit Metadata' to edit.")
-        self.detail_metadata.setStyleSheet("background-color: #0d0d1a; color: #ccc; font-size: 11px;")
+        self.detail_metadata.setStyleSheet("background-color: #0d0d1a; color: #ccc; font-size: 11px; border: 1px solid #333;")
         detail_right.addWidget(self.detail_metadata)
 
-        # Art strip
         self.detail_art = QLabel("Additional art: banner, clearlogo, fanart — displayed here if found on file system")
         self.detail_art.setFixedHeight(36)
         self.detail_art.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -262,7 +290,13 @@ class MainWindow(QMainWindow):
         detail_right.addWidget(self.detail_art)
 
         detail_layout.addLayout(detail_right)
-        root_layout.addWidget(detail)
+        v_splitter.addWidget(detail)
+
+        # Give detail panel more stretch weight than middle
+        v_splitter.setStretchFactor(0, 1)
+        v_splitter.setStretchFactor(1, 2)
+
+        root_layout.addWidget(v_splitter, 1)
 
         # ── STATUS BAR ───────────────────────────────────────────────────────
         self.status = QStatusBar()
