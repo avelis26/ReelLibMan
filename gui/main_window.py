@@ -276,8 +276,8 @@ class MainWindow(QMainWindow):
         detail_layout.setSpacing(8)
 
         self.detail_poster = QLabel("Movie\nPoster")
-        self.detail_poster.setFixedWidth(140)
-        self.detail_poster.setMinimumHeight(210)  # 2:3 ratio at 140px wide
+        self.detail_poster.setFixedWidth(300)
+        self.detail_poster.setMinimumHeight(600)  # 2:3 ratio at 140px wide
         self.detail_poster.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
         self.detail_poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.detail_poster.setStyleSheet("background-color: #1a1a2e; border: 1px solid #333;")
