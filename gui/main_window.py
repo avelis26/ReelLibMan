@@ -57,7 +57,7 @@ class SplashScreen(QSplashScreen):
 
     def _fade_in(self):
         self._anim = QPropertyAnimation(self, b"windowOpacity")
-        self._anim.setDuration(500)
+        self._anim.setDuration(1000)
         self._anim.setStartValue(0.0)
         self._anim.setEndValue(1.0)
         self._anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
@@ -65,7 +65,7 @@ class SplashScreen(QSplashScreen):
 
     def fade_out(self, on_done):
         self._anim = QPropertyAnimation(self, b"windowOpacity")
-        self._anim.setDuration(500)
+        self._anim.setDuration(2000)
         self._anim.setStartValue(1.0)
         self._anim.setEndValue(0.0)
         self._anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
@@ -173,6 +173,7 @@ class MainWindow(QMainWindow):
 
         nav_actions = {
             "Scan\nFile\nSystem": self._on_scan,
+            "Quit":               self._on_quit,
         }
         for label, color, _ in NAV_BUTTONS:
             btn = _nav_btn(label, color)
@@ -183,7 +184,10 @@ class MainWindow(QMainWindow):
         nav_layout.addStretch()
 
         for label, color, _ in NAV_BUTTONS_BOTTOM:
-            nav_layout.addWidget(_nav_btn(label, color))
+            btn = _nav_btn(label, color)
+            if label in nav_actions:
+                btn.clicked.connect(nav_actions[label])
+            nav_layout.addWidget(btn)
 
         middle_layout.addWidget(nav)
 
@@ -272,8 +276,8 @@ class MainWindow(QMainWindow):
         detail_layout.setSpacing(8)
 
         self.detail_poster = QLabel("Movie\nPoster")
-        self.detail_poster.setFixedWidth(480)
-        self.detail_poster.setMinimumHeight(640)  # 2:3 ratio at 140px wide
+        self.detail_poster.setFixedWidth(140)
+        self.detail_poster.setMinimumHeight(210)  # 2:3 ratio at 140px wide
         self.detail_poster.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
         self.detail_poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.detail_poster.setStyleSheet("background-color: #1a1a2e; border: 1px solid #333;")
@@ -341,18 +345,19 @@ class MainWindow(QMainWindow):
     def _on_scan(self):
         """Scan the file system and populate the file list."""
         self.file_list.clear()
-        file_name = None
         self.log("Scanning file system...")
         results = scan_movies()
         for m in results:
             try:
-                file_name = os.path.basename(m["media_file"])
-                self.file_list.addItem(file_name)
+                self.file_list.addItem(m["media_file"])
             except Exception as e:
-                self.log(f"FAILED: {m['folder_name']}")
-                print(f"FAILED ON: {m} — NO MEDIA FILE FOUND: {e}")
+                self.log(f"FAILED: {m['folder_name']} | {e}")
         self.log(f"Scan complete — {len(results)} movies found.")
         self.status.showMessage(f"Scan complete — {len(results)} movies found.")
+
+    def _on_quit(self):
+        """Cleanly exit the application."""
+        QApplication.quit()
 
     def _on_search(self):
         """Placeholder search handler — logic to be wired in later phase."""
@@ -382,6 +387,6 @@ def launch():
         splash.finish(window)
         window.show()
 
-    QTimer.singleShot(500, lambda: splash.fade_out(show_main))
+    QTimer.singleShot(1500, lambda: splash.fade_out(show_main))
 
     sys.exit(app.exec())
