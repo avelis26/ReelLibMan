@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QPixmap, QIcon, QFont
 from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
 from core.scanner import scan_movies
+from PyQt6.QtGui import QColor
 
 ASSETS = os.path.join(os.path.dirname(__file__), "../assets")
 ICON_HEIGHT = 48
@@ -214,10 +215,10 @@ class MainWindow(QMainWindow):
 
         self.file_list = QTableWidget()
         self.file_list.setColumnCount(4)
-        self.file_list.setStyleSheet("border: none;")
+        self.file_list.setStyleSheet("border: 1px solid #444;")
         self.file_list.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.file_list.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.file_list.verticalHeader().setVisible(False)
+        self.file_list.verticalHeader().setVisible(True)
         self.file_list.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.file_list.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
         self.file_list.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
@@ -239,18 +240,17 @@ class MainWindow(QMainWindow):
 
         # Columns 1-3 — colored dot headers with tooltips
         header_specs = [
-            (1, "●", "#00ff99", "Matched"),
-            (2, "●", "#4499ff", "Edited"),
-            (3, "●", "#ff4444", "Organized"),
+            (1, "🟢", "#00ff99", "Matched"),
+            (2, "🟠", "#4499ff", "Edited"),
+            (3, "🟣", "#ff4444", "Organized"),
         ]
         for col, symbol, color, tip in header_specs:
-            idx = self.file_list.horizontalHeader().logicalIndex(col)
-            self.file_list.horizontalHeader().model().setHeaderData(
-                idx, Qt.Orientation.Horizontal, symbol, Qt.ItemDataRole.DisplayRole
-            )
-            self.file_list.horizontalHeader().model().setHeaderData(
-                idx, Qt.Orientation.Horizontal, tip, Qt.ItemDataRole.ToolTipRole
-            )
+            item = QTableWidgetItem(symbol)
+            item.setToolTip(tip)
+            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            item.setForeground(QColor(color))
+            item.setFont(QFont("Arial", 18))
+            self.file_list.setHorizontalHeaderItem(col, item)
 
         self.file_list.itemClicked.connect(lambda item: self._on_file_selected(item) if item else None)
         self.file_list.currentItemChanged.connect(lambda current, _: self._on_file_selected(current) if current else None)
