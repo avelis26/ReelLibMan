@@ -16,8 +16,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLineEdit,
     QPushButton, QLabel, QStatusBar, QSplashScreen,
     QSizePolicy, QScrollArea, QFrame,
-    QTextEdit, QGridLayout, QListWidget, QProgressBar,
-    QSplitter
+    QTextEdit, QGridLayout, QProgressBar,
+    QSplitter, QTableWidget, QTableWidgetItem, QHeaderView
 )
 from PyQt6.QtGui import QPixmap, QIcon, QFont
 from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
@@ -212,11 +212,48 @@ class MainWindow(QMainWindow):
         fs_search_row.addWidget(fs_search_btn)
         left_layout.addLayout(fs_search_row)
 
-        self.file_list = QListWidget()
+        self.file_list = QTableWidget()
+        self.file_list.setColumnCount(4)
         self.file_list.setStyleSheet("border: none;")
-        self.file_list.addItem("[ File system scan results will appear here ]")
-        self.file_list.itemClicked.connect(self._on_file_selected)  # poster click handler
-        self.file_list.currentItemChanged.connect(lambda current, _: self._on_file_selected(current) if current else None) # poster key handler
+        self.file_list.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.file_list.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.file_list.verticalHeader().setVisible(False)
+        self.file_list.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.file_list.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
+        self.file_list.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        self.file_list.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
+        self.file_list.setColumnWidth(1, 36)
+        self.file_list.setColumnWidth(2, 36)
+        self.file_list.setColumnWidth(3, 36)
+        self.file_list.horizontalHeader().setStyleSheet("""
+            QHeaderView::section {
+                background-color: #1a1a2e;
+                color: #cccccc;
+                border: 1px solid #333;
+                padding: 4px;
+            }
+        """)
+
+        # Column 0 — plain text header
+        self.file_list.setHorizontalHeaderItem(0, QTableWidgetItem("File Name"))
+
+        # Columns 1-3 — colored dot headers with tooltips
+        header_specs = [
+            (1, "●", "#00ff99", "Matched"),
+            (2, "●", "#4499ff", "Edited"),
+            (3, "●", "#ff4444", "Organized"),
+        ]
+        for col, symbol, color, tip in header_specs:
+            idx = self.file_list.horizontalHeader().logicalIndex(col)
+            self.file_list.horizontalHeader().model().setHeaderData(
+                idx, Qt.Orientation.Horizontal, symbol, Qt.ItemDataRole.DisplayRole
+            )
+            self.file_list.horizontalHeader().model().setHeaderData(
+                idx, Qt.Orientation.Horizontal, tip, Qt.ItemDataRole.ToolTipRole
+            )
+
+        self.file_list.itemClicked.connect(lambda item: self._on_file_selected(item) if item else None)
+        self.file_list.currentItemChanged.connect(lambda current, _: self._on_file_selected(current) if current else None)
         left_layout.addWidget(self.file_list)
 
         h_splitter.addWidget(left_panel)
@@ -353,20 +390,26 @@ class MainWindow(QMainWindow):
     # ── SLOT HANDLERS ────────────────────────────────────────────────────────
 
     def _on_fs_search(self):
-        """Filter the file list based on search input."""
+        """Filter the file list based on search input (column 0 — File Name)."""
         query = self.fs_search_input.text().strip().lower()
-        for i in range(self.file_list.count()):
-            item = self.file_list.item(i)
-            item.setHidden(query not in item.text().lower())
+        for row in range(self.file_list.rowCount()):
+            item = self.file_list.item(row, 0)
+            match = query in (item.text().lower() if item else "")
+            self.file_list.setRowHidden(row, not match)
 
     def _on_scan(self):
         """Scan the file system and populate the file list."""
-        self.file_list.clear()
+        self.file_list.setRowCount(0)   # clears rows without touching headers
         self.log("Scanning file system...")
         self._scan_results = scan_movies()
         for m in self._scan_results:
             try:
-                self.file_list.addItem(m["media_file"])
+                row = self.file_list.rowCount()
+                self.file_list.insertRow(row)
+                self.file_list.setItem(row, 0, QTableWidgetItem(m["media_file"]))
+                # Columns 1-3 placeholder — logic wired later
+                for col in (1, 2, 3):
+                    self.file_list.setItem(row, col, QTableWidgetItem(""))
             except Exception as e:
                 self.log(f"FAILED: {m['folder_name']} | {e}")
         self.log(f"Scan complete — {len(self._scan_results)} movies found.")
@@ -374,13 +417,13 @@ class MainWindow(QMainWindow):
 
     def _on_file_selected(self, item):
         """Display poster.jpg/png for the selected movie file, if it exists."""
-        media_file = item.text()
+        # item can come from any column; always read the filename from column 0
+        media_file = self.file_list.item(item.row(), 0).text()
 
         # Locate the matching scan result to get its folder
         folder = None
         for m in self._scan_results:
             if m.get("media_file") == media_file:
-                # Prefer an explicit folder_path key; fall back to deriving it
                 folder = m.get("folder_path") or os.path.dirname(m.get("media_file", ""))
                 break
 
