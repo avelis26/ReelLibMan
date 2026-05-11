@@ -9,6 +9,7 @@
 
 ```fish
 sudo pacman -S python-dotenv python-requests
+sudo pacman -S python-pyqt6
 ```
 
 ## 1. Goals
@@ -186,6 +187,12 @@ Library ready for Emby / Jellyfin (online or air-gapped)
 ## 11. Tech Debt
 
 - **/api/get_movie_tmdb_api_data.py** Line ~31 get_movie_by_name() assumes first match is correct
+
+---
+
+## 12. Assets Used
+
+- **Meta Ai** used to create logo, headline, and other art assets
 
 ---
 
