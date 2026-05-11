@@ -349,7 +349,8 @@ class MainWindow(QMainWindow):
                 file_name = os.path.basename(m["media_file"])
                 self.file_list.addItem(file_name)
             except Exception as e:
-                print(f"FAILED ON: {m} — ERROR: {e}")
+                self.log(f"FAILED: {m['folder_name']}")
+                print(f"FAILED ON: {m} — NO MEDIA FILE FOUND: {e}")
         self.log(f"Scan complete — {len(results)} movies found.")
         self.status.showMessage(f"Scan complete — {len(results)} movies found.")
 

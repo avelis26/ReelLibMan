@@ -5,5 +5,6 @@
         ],
         "tv_paths": []
     },
-    "file_extensions": [".mkv", ".mp4", ".avi", ".m4v", ".mov"]
+    "file_extensions": [".mkv", ".mp4", ".avi", ".m4v", ".mov", ".webm"],
+    "ignore_suffixes": ["-trailer"]
 }
