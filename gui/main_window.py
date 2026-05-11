@@ -216,6 +216,7 @@ class MainWindow(QMainWindow):
         self.file_list.setStyleSheet("border: none;")
         self.file_list.addItem("[ File system scan results will appear here ]")
         self.file_list.itemClicked.connect(self._on_file_selected)  # poster click handler
+        self.file_list.currentItemChanged.connect(lambda current, _: self._on_file_selected(current) if current else None) # poster key handler
         left_layout.addWidget(self.file_list)
 
         h_splitter.addWidget(left_panel)
