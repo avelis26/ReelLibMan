@@ -42,8 +42,8 @@ NAV_BUTTONS_BOTTOM = [
 ]
 
 # Map panel outlines to matching nav button colors
-COLOR_FS   = "#00ccff"   # Scan File System
-COLOR_SCRAPE = "#00ff99" # Scrape Web API
+COLOR_FS     = "#00ccff"   # Scan File System
+COLOR_SCRAPE = "#00ff99"   # Scrape Web API
 
 
 class SplashScreen(QSplashScreen):
@@ -100,7 +100,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("ReelLibMan")
         self.setMinimumSize(1280, 720)
         self.setWindowIcon(QIcon(os.path.join(ASSETS, "ReelLibMan_Icon.png")))
+        self._scan_results = []   # cache of dicts returned by scan_movies()
         self._build_ui()
+        self.showMaximized()
 
     def _build_ui(self):
         root = QWidget()
@@ -213,6 +215,7 @@ class MainWindow(QMainWindow):
         self.file_list = QListWidget()
         self.file_list.setStyleSheet("border: none;")
         self.file_list.addItem("[ File system scan results will appear here ]")
+        self.file_list.itemClicked.connect(self._on_file_selected)  # poster click handler
         left_layout.addWidget(self.file_list)
 
         h_splitter.addWidget(left_panel)
@@ -277,7 +280,7 @@ class MainWindow(QMainWindow):
 
         self.detail_poster = QLabel("Movie\nPoster")
         self.detail_poster.setFixedWidth(300)
-        self.detail_poster.setMinimumHeight(600)  # 2:3 ratio at 140px wide
+        self.detail_poster.setMinimumHeight(600)
         self.detail_poster.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
         self.detail_poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.detail_poster.setStyleSheet("background-color: #1a1a2e; border: 1px solid #333;")
@@ -318,6 +321,8 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self.status)
         self.status.showMessage("Ready  |  CPU: --  |  RAM: --  |  Storage: --  |  DB: --  |  API Calls: 0  |  Internet: --")
 
+    # ── HELPERS ──────────────────────────────────────────────────────────────
+
     def _populate_placeholder_posters(self, count):
         """Fill poster grid with placeholder tiles."""
         for i in range(count):
@@ -335,6 +340,17 @@ class MainWindow(QMainWindow):
             tile_layout.addWidget(meta)
             self.poster_grid.addWidget(tile, 0, i)
 
+    def _clear_poster(self, msg="Movie\nPoster"):
+        """Reset the detail poster label to a text placeholder."""
+        self.detail_poster.clear()
+        self.detail_poster.setText(msg)
+
+    def log(self, msg):
+        """Append a message to the activity log."""
+        self.activity_log.append(f"> {msg}")
+
+    # ── SLOT HANDLERS ────────────────────────────────────────────────────────
+
     def _on_fs_search(self):
         """Filter the file list based on search input."""
         query = self.fs_search_input.text().strip().lower()
@@ -346,14 +362,59 @@ class MainWindow(QMainWindow):
         """Scan the file system and populate the file list."""
         self.file_list.clear()
         self.log("Scanning file system...")
-        results = scan_movies()
-        for m in results:
+        self._scan_results = scan_movies()
+        for m in self._scan_results:
             try:
                 self.file_list.addItem(m["media_file"])
             except Exception as e:
                 self.log(f"FAILED: {m['folder_name']} | {e}")
-        self.log(f"Scan complete — {len(results)} movies found.")
-        self.status.showMessage(f"Scan complete — {len(results)} movies found.")
+        self.log(f"Scan complete — {len(self._scan_results)} movies found.")
+        self.status.showMessage(f"Scan complete — {len(self._scan_results)} movies found.")
+
+    def _on_file_selected(self, item):
+        """Display poster.jpg/png for the selected movie file, if it exists."""
+        media_file = item.text()
+
+        # Locate the matching scan result to get its folder
+        folder = None
+        for m in self._scan_results:
+            if m.get("media_file") == media_file:
+                # Prefer an explicit folder_path key; fall back to deriving it
+                folder = m.get("folder_path") or os.path.dirname(m.get("media_file", ""))
+                break
+
+        # Last-resort fallback: derive from the path string itself
+        if not folder:
+            folder = os.path.dirname(media_file)
+
+        # Update filename / path labels in the detail panel
+        self.detail_filename.setText(os.path.basename(media_file))
+        self.detail_filepath.setText(media_file)
+
+        # Search for a poster image in the movie's folder
+        poster_path = None
+        for name in ("poster.jpg", "poster.jpeg", "poster.png"):
+            candidate = os.path.join(folder, name)
+            if os.path.isfile(candidate):
+                poster_path = candidate
+                break
+
+        if poster_path:
+            pix = QPixmap(poster_path)
+            if not pix.isNull():
+                scaled = pix.scaled(
+                    self.detail_poster.width(),
+                    self.detail_poster.height(),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+                self.detail_poster.setPixmap(scaled)
+                self.detail_poster.setText("")   # clear placeholder text
+            else:
+                self._clear_poster("(could not load\nposter image)")
+                self.log(f"WARNING: QPixmap failed to load {poster_path}")
+        else:
+            self._clear_poster("No poster\nfound")
 
     def _on_quit(self):
         """Cleanly exit the application."""
@@ -368,10 +429,8 @@ class MainWindow(QMainWindow):
         self.status.showMessage(f"Searching for: {title}...")
         self.activity_log.append(f"> Searching TMDB for: {title}")
 
-    def log(self, msg):
-        """Append a message to the activity log."""
-        self.activity_log.append(f"> {msg}")
 
+# ── ENTRY POINT ──────────────────────────────────────────────────────────────
 
 def launch():
     """Initialize splash, then launch the main window."""
