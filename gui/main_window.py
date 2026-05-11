@@ -57,7 +57,7 @@ class SplashScreen(QSplashScreen):
 
     def _fade_in(self):
         self._anim = QPropertyAnimation(self, b"windowOpacity")
-        self._anim.setDuration(1000)
+        self._anim.setDuration(500)
         self._anim.setStartValue(0.0)
         self._anim.setEndValue(1.0)
         self._anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
@@ -65,7 +65,7 @@ class SplashScreen(QSplashScreen):
 
     def fade_out(self, on_done):
         self._anim = QPropertyAnimation(self, b"windowOpacity")
-        self._anim.setDuration(2000)
+        self._anim.setDuration(500)
         self._anim.setStartValue(1.0)
         self._anim.setEndValue(0.0)
         self._anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
@@ -341,10 +341,15 @@ class MainWindow(QMainWindow):
     def _on_scan(self):
         """Scan the file system and populate the file list."""
         self.file_list.clear()
+        file_name = None
         self.log("Scanning file system...")
         results = scan_movies()
         for m in results:
-            self.file_list.addItem(m["folder_name"])
+            try:
+                file_name = os.path.basename(m["media_file"])
+                self.file_list.addItem(file_name)
+            except Exception as e:
+                print(f"FAILED ON: {m} — ERROR: {e}")
         self.log(f"Scan complete — {len(results)} movies found.")
         self.status.showMessage(f"Scan complete — {len(results)} movies found.")
 
@@ -376,6 +381,6 @@ def launch():
         splash.finish(window)
         window.show()
 
-    QTimer.singleShot(1500, lambda: splash.fade_out(show_main))
+    QTimer.singleShot(500, lambda: splash.fade_out(show_main))
 
     sys.exit(app.exec())
