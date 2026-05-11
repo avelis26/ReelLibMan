@@ -22,7 +22,6 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QPixmap, QIcon, QFont
 from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
 from core.scanner import scan_movies
-from PyQt6.QtGui import QColor
 
 ASSETS = os.path.join(os.path.dirname(__file__), "../assets")
 ICON_HEIGHT = 48
@@ -240,15 +239,15 @@ class MainWindow(QMainWindow):
 
         # Columns 1-3 — colored dot headers with tooltips
         header_specs = [
-            (1, "🟢", "#00ff99", "Matched"),
-            (2, "🟠", "#4499ff", "Edited"),
-            (3, "🟣", "#ff4444", "Organized"),
+            (1, "🟢", "Matched"),
+            (2, "🟠", "Edited"),
+            (3, "🟣", "Organized"),
         ]
-        for col, symbol, color, tip in header_specs:
+
+        for col, symbol, tip in header_specs:
             item = QTableWidgetItem(symbol)
             item.setToolTip(tip)
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            item.setForeground(QColor(color))
             item.setFont(QFont("Arial", 18))
             self.file_list.setHorizontalHeaderItem(col, item)
 
