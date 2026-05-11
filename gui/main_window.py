@@ -10,6 +10,7 @@ Usage:
 
 import os
 import sys
+import time
 import requests
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget,
@@ -102,6 +103,7 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon(os.path.join(ASSETS, "ReelLibMan_Icon.png")))
         self._scan_results = []   # cache of dicts returned by scan_movies()
         self._build_ui()
+        # for some reason, remove the line below makes the splash screen take longer to load
         self.showMaximized()
 
     def _build_ui(self):
@@ -254,7 +256,6 @@ class MainWindow(QMainWindow):
         self.file_list.itemClicked.connect(lambda item: self._on_file_selected(item) if item else None)
         self.file_list.currentItemChanged.connect(lambda current, _: self._on_file_selected(current) if current else None)
         left_layout.addWidget(self.file_list)
-
         h_splitter.addWidget(left_panel)
 
         # Right panel — scrape results
@@ -482,7 +483,7 @@ def launch():
     splash = SplashScreen()
     splash.show()
     app.processEvents()
-
+    time.sleep(1)
     window = MainWindow()
 
     def show_main():
