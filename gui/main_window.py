@@ -25,21 +25,21 @@ from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
 from core.scanner import scan_movies
 
 ASSETS = os.path.join(os.path.dirname(__file__), "../assets")
-ICON_HEIGHT = 48
-POSTER_HEIGHT = 144
+ICON_HEIGHT = 65
+#POSTER_HEIGHT = 144
 TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original"
 
 # Nav button colors: label, text color, border color
 NAV_BUTTONS = [
-    ("Scan\nFile\nSystem",          "#00ccff", "#00ccff"),
-    ("Scrape\nWeb\nAPI",            "#00ff99", "#00ff99"),
-    ("Manually\nEdit\nMetadata",    "#ff9900", "#ff9900"),
-    ("Move\nAnd\nRename\nFiles",    "#ff66cc", "#ff66cc"),
+    ("Scan\nFile\nSystem",          "#B2BEB5", "#00ccff"),
+    ("Scrape\nWeb\nAPI",            "#B2BEB5", "#00ff99"),
+    ("Manually\nEdit\nMetadata",    "#B2BEB5", "#ff9900"),
+    ("Move\nAnd\nRename\nFiles",    "#B2BEB5", "#ff66cc"),
 ]
 NAV_BUTTONS_BOTTOM = [
-    ("Check\nFor\nUpdates",         "#aaaaff", "#aaaaff"),
-    ("Settings",                    "#ffff66", "#ffff66"),
-    ("Quit",                        "#ff4444", "#ff4444"),
+    ("Check\nFor\nUpdates",         "#B2BEB5", "#aaaaff"),
+    ("Settings",                    "#B2BEB5", "#ffff66"),
+    ("Quit",                        "#B2BEB5", "#ff4444"),
 ]
 
 # Map panel outlines to matching nav button colors
@@ -51,7 +51,7 @@ class SplashScreen(QSplashScreen):
     """Splash screen with fade-in and fade-out animations."""
 
     def __init__(self):
-        pixmap = QPixmap(os.path.join(ASSETS, "ReelLibMan_Splash.png"))
+        pixmap = QPixmap(os.path.join(ASSETS, "1.png"))
         super().__init__(pixmap, Qt.WindowType.WindowStaysOnTopHint)
         self.setWindowOpacity(0.0)
         self._fade_in()
@@ -74,14 +74,13 @@ class SplashScreen(QSplashScreen):
         self._anim.start()
 
 
-def _nav_btn(label, color):
-    """Create a styled nav button."""
+def _nav_btn(label, color, border_color):
     btn = QPushButton(label)
     btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
     btn.setStyleSheet(f"""
         QPushButton {{
             color: {color};
-            border: 1px solid {color};
+            border: 1px solid {border_color};
             padding: 6px;
             text-align: center;
             background-color: #12122a;
@@ -100,7 +99,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("ReelLibMan")
         self.setMinimumSize(1280, 720)
-        self.setWindowIcon(QIcon(os.path.join(ASSETS, "ReelLibMan_Icon.png")))
+        self.setWindowIcon(QIcon(os.path.join(ASSETS, "1.png")))
         self._scan_results = []   # cache of dicts returned by scan_movies()
         self._build_ui()
         # for some reason, remove the line below makes the splash screen take longer to load
@@ -122,10 +121,11 @@ class MainWindow(QMainWindow):
 
         # Icon + headline + version
         icon_lbl = QLabel()
-        icon_pix = QPixmap(os.path.join(ASSETS, "ReelLibMan_Icon.png"))
+        icon_pix = QPixmap(os.path.join(ASSETS, "1.png"))
         icon_lbl.setPixmap(icon_pix.scaledToHeight(ICON_HEIGHT, Qt.TransformationMode.SmoothTransformation))
         headline_lbl = QLabel()
-        headline_pix = QPixmap(os.path.join(ASSETS, "ReelLibMan_Headline.png"))
+        headline_pix = QPixmap(os.path.join(ASSETS, "1.png"))
+        headline_pix = QPixmap(os.path.join(ASSETS, "2.png"))
         headline_lbl.setPixmap(headline_pix.scaledToHeight(ICON_HEIGHT, Qt.TransformationMode.SmoothTransformation))
         version_lbl = QLabel("v1.0.0 - GIT")
         version_lbl.setStyleSheet("color: #888; font-size: 11px;")
@@ -179,16 +179,16 @@ class MainWindow(QMainWindow):
             "Scan\nFile\nSystem": self._on_scan,
             "Quit":               self._on_quit,
         }
-        for label, color, _ in NAV_BUTTONS:
-            btn = _nav_btn(label, color)
+        for label, color, border_color in NAV_BUTTONS:
+            btn = _nav_btn(label, color, border_color)
             if label in nav_actions:
                 btn.clicked.connect(nav_actions[label])
             nav_layout.addWidget(btn)
 
         nav_layout.addStretch()
 
-        for label, color, _ in NAV_BUTTONS_BOTTOM:
-            btn = _nav_btn(label, color)
+        for label, color, border_color in NAV_BUTTONS_BOTTOM:
+            btn = _nav_btn(label, color, border_color)
             if label in nav_actions:
                 btn.clicked.connect(nav_actions[label])
             nav_layout.addWidget(btn)
@@ -318,7 +318,7 @@ class MainWindow(QMainWindow):
 
         self.detail_poster = QLabel("Movie\nPoster")
         self.detail_poster.setFixedWidth(300)
-        self.detail_poster.setMinimumHeight(600)
+        self.detail_poster.setMinimumHeight(370)
         self.detail_poster.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
         self.detail_poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.detail_poster.setStyleSheet("background-color: #1a1a2e; border: 1px solid #333;")
@@ -348,8 +348,8 @@ class MainWindow(QMainWindow):
         v_splitter.addWidget(detail)
 
         # Give detail panel more stretch weight than middle
-        v_splitter.setStretchFactor(0, 1)
-        v_splitter.setStretchFactor(1, 2)
+        v_splitter.setStretchFactor(0, 11)
+        v_splitter.setStretchFactor(1, 9)
 
         root_layout.addWidget(v_splitter, 1)
 
@@ -433,7 +433,7 @@ class MainWindow(QMainWindow):
 
         # Update filename / path labels in the detail panel
         self.detail_filename.setText(os.path.basename(media_file))
-        self.detail_filepath.setText(media_file)
+        self.detail_filepath.setText(folder)
 
         # Search for a poster image in the movie's folder
         poster_path = None
@@ -442,6 +442,24 @@ class MainWindow(QMainWindow):
             if os.path.isfile(candidate):
                 poster_path = candidate
                 break
+
+        # Load NFO metadata
+        nfo_path = None
+        for name in (os.path.splitext(os.path.basename(media_file))[0] + ".nfo", "movie.nfo"):
+            candidate = os.path.join(folder, name)
+            if os.path.isfile(candidate):
+                nfo_path = candidate
+                break
+
+        if nfo_path:
+            try:
+                with open(nfo_path, "r", encoding="utf-8", errors="replace") as f:
+                    self.detail_metadata.setPlainText(f.read())
+            except Exception as e:
+                self.detail_metadata.setPlaceholderText(f"(could not read NFO: {e})")
+                self.detail_metadata.clear()
+        else:
+            self.detail_metadata.clear()
 
         if poster_path:
             pix = QPixmap(poster_path)
