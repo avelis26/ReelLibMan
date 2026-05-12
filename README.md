@@ -52,31 +52,30 @@ sudo pacman -S python-pyqt6
 ```
 ReelLibMan/
 ├── main.py                             # Entry point
-├── config/
-│   └── settings.py                     # User config loader/saver
-├── core/
-│   ├── scanner.py                      # File system scanner
-│   ├── matcher.py                      # Match files to metadata
-│   ├── renamer.py                      # Rename/move files per convention
-│   └── organizer.py                    # Folder structure enforcement
 ├── api/
 │   ├── get_movie_tmdb_api_data.py      # TMDB API client
-│   └── tvdb.py                         # TVDB API client
+├── assets/
+│   ├── 1.png                           # App Logo Image
+│   └── 2.png                           # App Headline Image
+│   └── ReelLibMan_GUI_Mock_Up.kra      # App Mockup Image Project
+│   └── ReelLibMan_GUI_Mock_Up.png      # App Mockup Image
+│   └── screenshot.png                  # App Screenshot Image
 ├── cache/
-│   └── db.py                           # SQLite cache layer (SQLAlchemy)
+│   └── create_sqlite_db.py             # Create SQLite Database
+│   └── insert_api_data.py              # Insert Data to SQLite Database
+├── config/
+│   └── settings.json                   # User Configuration Storage
+├── core/
+│   ├── scanner.py                      # File System Scanner
 ├── gui/
-│   ├── main_window.py                  # Main application window
-│   ├── movie_view.py                   # Movie library view
-│   └── settings_view.py                # Settings / config UI
+│   ├── main_window.py                  # Main Application Window
 ├── models/
-│   ├── movie.py                        # Movie data model
-│   └── show.py                         # TV show data model (Phase 2)
+│   ├── movie.py                        # Movie Data Model Placeholder
 ├── utils/
-│   └── helpers.py                      # Shared utility functions
+│   └── helpers.py                      # Shared utility functions Placeholder
 ├── tests/
 │   └── ...                             # Unit tests
-├── BLUEPRINT.md
-├── README.md
+├── README.md                           # Documentation
 ```
 
 ---
@@ -197,6 +196,3 @@ Library ready for Emby / Jellyfin (online or air-gapped)
 - **Meta Ai** used to create logo, headline, and other art assets
 
 ---
-
-*This is a living document. Update before coding, not after.*
-Non-Goals (explicitly o
