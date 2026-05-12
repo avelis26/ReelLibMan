@@ -2,7 +2,6 @@
 ReelLibMan main application window.
 
 Provides the primary GUI shell for ReelLibMan.
-All panels are placeholders — logic will be wired in subsequent phases.
 
 Usage:
     Not called directly — launched by main.py.
@@ -11,7 +10,9 @@ Usage:
 import os
 import sys
 import time
+import threading
 import requests
+from io import BytesIO
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget,
     QVBoxLayout, QHBoxLayout, QLineEdit,
@@ -21,37 +22,34 @@ from PyQt6.QtWidgets import (
     QSplitter, QTableWidget, QTableWidgetItem, QHeaderView
 )
 from PyQt6.QtGui import QPixmap, QIcon, QFont
-from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
+from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, pyqtSignal
+from PyQt6.QtCore import QObject
 from core.scanner import scan_movies
+from api.get_movie_tmdb_api_data import search_movies_brief, parse_title_and_year
 
 ASSETS = os.path.join(os.path.dirname(__file__), "../assets")
-ICON_HEIGHT = 48
-POSTER_HEIGHT = 144
+ICON_HEIGHT = 65
 TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original"
 
-# Nav button colors: label, text color, border color
 NAV_BUTTONS = [
-    ("Scan\nFile\nSystem",          "#00ccff", "#00ccff"),
-    ("Scrape\nWeb\nAPI",            "#00ff99", "#00ff99"),
-    ("Manually\nEdit\nMetadata",    "#ff9900", "#ff9900"),
-    ("Move\nAnd\nRename\nFiles",    "#ff66cc", "#ff66cc"),
+    ("Scan\nFile\nSystem",          "#B2BEB5", "#00ccff"),
+    ("Scrape\nWeb\nAPI",            "#B2BEB5", "#00ff99"),
+    ("Manually\nEdit\nMetadata",    "#B2BEB5", "#ff9900"),
+    ("Move\nAnd\nRename\nFiles",    "#B2BEB5", "#ff66cc"),
 ]
 NAV_BUTTONS_BOTTOM = [
-    ("Check\nFor\nUpdates",         "#aaaaff", "#aaaaff"),
-    ("Settings",                    "#ffff66", "#ffff66"),
-    ("Quit",                        "#ff4444", "#ff4444"),
+    ("Check\nFor\nUpdates",         "#B2BEB5", "#aaaaff"),
+    ("Settings",                    "#B2BEB5", "#ffff66"),
+    ("Quit",                        "#B2BEB5", "#ff4444"),
 ]
 
-# Map panel outlines to matching nav button colors
-COLOR_FS     = "#00ccff"   # Scan File System
-COLOR_SCRAPE = "#00ff99"   # Scrape Web API
+COLOR_FS     = "#00ccff"
+COLOR_SCRAPE = "#00ff99"
 
 
 class SplashScreen(QSplashScreen):
-    """Splash screen with fade-in and fade-out animations."""
-
     def __init__(self):
-        pixmap = QPixmap(os.path.join(ASSETS, "ReelLibMan_Splash.png"))
+        pixmap = QPixmap(os.path.join(ASSETS, "1.png"))
         super().__init__(pixmap, Qt.WindowType.WindowStaysOnTopHint)
         self.setWindowOpacity(0.0)
         self._fade_in()
@@ -74,14 +72,13 @@ class SplashScreen(QSplashScreen):
         self._anim.start()
 
 
-def _nav_btn(label, color):
-    """Create a styled nav button."""
+def _nav_btn(label, color, border_color):
     btn = QPushButton(label)
     btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
     btn.setStyleSheet(f"""
         QPushButton {{
             color: {color};
-            border: 1px solid {color};
+            border: 1px solid {border_color};
             padding: 6px;
             text-align: center;
             background-color: #12122a;
@@ -93,6 +90,11 @@ def _nav_btn(label, color):
     return btn
 
 
+class _WorkerSignals(QObject):
+    done  = pyqtSignal(list)
+    error = pyqtSignal(str)
+
+
 class MainWindow(QMainWindow):
     """Primary application window for ReelLibMan."""
 
@@ -100,10 +102,9 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("ReelLibMan")
         self.setMinimumSize(1280, 720)
-        self.setWindowIcon(QIcon(os.path.join(ASSETS, "ReelLibMan_Icon.png")))
-        self._scan_results = []   # cache of dicts returned by scan_movies()
+        self.setWindowIcon(QIcon(os.path.join(ASSETS, "1.png")))
+        self._scan_results = []
         self._build_ui()
-        # for some reason, remove the line below makes the splash screen take longer to load
         self.showMaximized()
 
     def _build_ui(self):
@@ -120,12 +121,11 @@ class MainWindow(QMainWindow):
         top_layout = QHBoxLayout(top_bar)
         top_layout.setContentsMargins(10, 5, 10, 5)
 
-        # Icon + headline + version
         icon_lbl = QLabel()
-        icon_pix = QPixmap(os.path.join(ASSETS, "ReelLibMan_Icon.png"))
+        icon_pix = QPixmap(os.path.join(ASSETS, "1.png"))
         icon_lbl.setPixmap(icon_pix.scaledToHeight(ICON_HEIGHT, Qt.TransformationMode.SmoothTransformation))
         headline_lbl = QLabel()
-        headline_pix = QPixmap(os.path.join(ASSETS, "ReelLibMan_Headline.png"))
+        headline_pix = QPixmap(os.path.join(ASSETS, "2.png"))
         headline_lbl.setPixmap(headline_pix.scaledToHeight(ICON_HEIGHT, Qt.TransformationMode.SmoothTransformation))
         version_lbl = QLabel("v1.0.0 - GIT")
         version_lbl.setStyleSheet("color: #888; font-size: 11px;")
@@ -138,7 +138,6 @@ class MainWindow(QMainWindow):
         brand_inner.addStretch()
         top_layout.addLayout(brand_inner)
 
-        # Movies / TV Shows tabs — 3x wider
         self.btn_movies = QPushButton("🎬  MOVIES")
         self.btn_movies.setFixedSize(300, 56)
         self.btn_movies.setStyleSheet("font-size: 15px; font-weight: bold;")
@@ -148,7 +147,6 @@ class MainWindow(QMainWindow):
         top_layout.addWidget(self.btn_movies)
         top_layout.addWidget(self.btn_tv)
 
-        # Activity log
         self.activity_log = QTextEdit()
         self.activity_log.setReadOnly(True)
         self.activity_log.setStyleSheet("background-color: #0d0d1a; color: #00ff99; font-family: monospace; font-size: 11px;")
@@ -177,18 +175,19 @@ class MainWindow(QMainWindow):
 
         nav_actions = {
             "Scan\nFile\nSystem": self._on_scan,
+            "Scrape\nWeb\nAPI":   self._on_scrape,
             "Quit":               self._on_quit,
         }
-        for label, color, _ in NAV_BUTTONS:
-            btn = _nav_btn(label, color)
+        for label, color, border_color in NAV_BUTTONS:
+            btn = _nav_btn(label, color, border_color)
             if label in nav_actions:
                 btn.clicked.connect(nav_actions[label])
             nav_layout.addWidget(btn)
 
         nav_layout.addStretch()
 
-        for label, color, _ in NAV_BUTTONS_BOTTOM:
-            btn = _nav_btn(label, color)
+        for label, color, border_color in NAV_BUTTONS_BOTTOM:
+            btn = _nav_btn(label, color, border_color)
             if label in nav_actions:
                 btn.clicked.connect(nav_actions[label])
             nav_layout.addWidget(btn)
@@ -236,16 +235,13 @@ class MainWindow(QMainWindow):
             }
         """)
 
-        # Column 0 — plain text header
         self.file_list.setHorizontalHeaderItem(0, QTableWidgetItem("File Name"))
 
-        # Columns 1-3 — colored dot headers with tooltips
         header_specs = [
             (1, "🟢", "Matched"),
             (2, "🟠", "Edited"),
             (3, "🟣", "Organized"),
         ]
-
         for col, symbol, tip in header_specs:
             item = QTableWidgetItem(symbol)
             item.setToolTip(tip)
@@ -267,7 +263,7 @@ class MainWindow(QMainWindow):
 
         updates_lbl = QLabel("App updates from app author could be displayed here")
         updates_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        updates_lbl.setStyleSheet(f"border: 1px solid #333; padding: 4px; color: #888;")
+        updates_lbl.setStyleSheet("border: 1px solid #333; padding: 4px; color: #888;")
         right_layout.addWidget(updates_lbl)
 
         manual_search_row = QHBoxLayout()
@@ -318,7 +314,7 @@ class MainWindow(QMainWindow):
 
         self.detail_poster = QLabel("Movie\nPoster")
         self.detail_poster.setFixedWidth(300)
-        self.detail_poster.setMinimumHeight(600)
+        self.detail_poster.setMinimumHeight(370)
         self.detail_poster.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
         self.detail_poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.detail_poster.setStyleSheet("background-color: #1a1a2e; border: 1px solid #333;")
@@ -347,9 +343,8 @@ class MainWindow(QMainWindow):
         detail_layout.addLayout(detail_right)
         v_splitter.addWidget(detail)
 
-        # Give detail panel more stretch weight than middle
-        v_splitter.setStretchFactor(0, 1)
-        v_splitter.setStretchFactor(1, 2)
+        v_splitter.setStretchFactor(0, 11)
+        v_splitter.setStretchFactor(1, 9)
 
         root_layout.addWidget(v_splitter, 1)
 
@@ -378,6 +373,104 @@ class MainWindow(QMainWindow):
             tile_layout.addWidget(meta)
             self.poster_grid.addWidget(tile, 0, i)
 
+    def _clear_poster_grid(self):
+        """Remove all widgets from the poster grid."""
+        while self.poster_grid.count():
+            item = self.poster_grid.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+    def _make_result_tile(self, result):
+        """Build a single grid tile for one TMDB search result."""
+        tile = QWidget()
+        tile_layout = QVBoxLayout(tile)
+        tile_layout.setSpacing(4)
+        tile_layout.setContentsMargins(4, 4, 4, 4)
+
+        poster_lbl = QLabel("Loading…")
+        poster_lbl.setFixedSize(210, 300)
+        poster_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        poster_lbl.setStyleSheet(
+            "background-color: #1a1a2e; border: 1px solid #444; color: #888; font-size: 10px;"
+        )
+
+        overview = result.get("overview", "")
+        short_plot = (overview[:117] + "…") if len(overview) > 120 else overview
+
+        meta_text = (
+            f"<b>{result['title']}</b><br>"
+            f"{result['release_year']}<br>"
+            f"<small>{short_plot}</small>"
+        )
+        meta_lbl = QLabel(meta_text)
+        meta_lbl.setWordWrap(True)
+        meta_lbl.setFixedWidth(210)
+        meta_lbl.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        meta_lbl.setStyleSheet("color: #ccc; font-size: 18px;")
+
+        tile_layout.addWidget(poster_lbl)
+        tile_layout.addWidget(meta_lbl)
+        return tile, poster_lbl
+
+    def _fetch_poster_async(self, poster_url, poster_lbl):
+        """Download a TMDB poster in a background thread and update the label."""
+        sig = _WorkerSignals()
+        sig.done.connect(lambda _: None)   # unused slot, keeps sig alive
+
+        # Use a dedicated bytes signal via a local QObject
+        class _PosterSignals(QObject):
+            ready = pyqtSignal(bytes)
+            fail  = pyqtSignal()
+
+        ps = _PosterSignals()
+        ps.ready.connect(lambda data: self._apply_poster(poster_lbl, data))
+        ps.fail.connect(lambda: poster_lbl.setText("No\nImage"))
+
+        def worker():
+            try:
+                resp = requests.get(poster_url, timeout=10)
+                resp.raise_for_status()
+                ps.ready.emit(resp.content)
+            except Exception:
+                ps.fail.emit()
+
+        threading.Thread(target=worker, daemon=True).start()
+        # Keep ps alive for the thread's lifetime
+        self._poster_signals = getattr(self, "_poster_signals", [])
+        self._poster_signals.append(ps)
+
+    def _apply_poster(self, poster_lbl, data):
+        pix = QPixmap()
+        pix.loadFromData(data)
+        if not pix.isNull():
+            scaled = pix.scaled(
+                210, 300,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            poster_lbl.setPixmap(scaled)
+            poster_lbl.setText("")
+        else:
+            poster_lbl.setText("No\nImage")
+
+    def _populate_scrape_results(self, results):
+        """Clear the grid and fill it with live TMDB search results."""
+        self._clear_poster_grid()
+        if not results:
+            lbl = QLabel("No results found.")
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lbl.setStyleSheet("color: #888;")
+            self.poster_grid.addWidget(lbl, 0, 0)
+            return
+
+        for col, result in enumerate(results):
+            tile, poster_lbl = self._make_result_tile(result)
+            self.poster_grid.addWidget(tile, 0, col)
+            if result.get("poster_url"):
+                self._fetch_poster_async(result["poster_url"], poster_lbl)
+            else:
+                poster_lbl.setText("No\nPoster")
+
     def _clear_poster(self, msg="Movie\nPoster"):
         """Reset the detail poster label to a text placeholder."""
         self.detail_poster.clear()
@@ -399,49 +492,64 @@ class MainWindow(QMainWindow):
 
     def _on_scan(self):
         """Scan the file system and populate the file list."""
-        self.file_list.setRowCount(0)   # clears rows without touching headers
+        self.file_list.setRowCount(0)
         self.log("Scanning file system...")
         self._scan_results = scan_movies()
         for m in self._scan_results:
             try:
+                if not m.get("media_file", "").strip():
+                    continue
                 row = self.file_list.rowCount()
                 self.file_list.insertRow(row)
                 self.file_list.setItem(row, 0, QTableWidgetItem(m["media_file"]))
-                # Columns 1-3 placeholder — logic wired later
                 for col in (1, 2, 3):
                     self.file_list.setItem(row, col, QTableWidgetItem(""))
             except Exception as e:
                 self.log(f"FAILED: {m['folder_name']} | {e}")
-        self.log(f"Scan complete — {len(self._scan_results)} movies found.")
+        self.log(f"Scan complete — {len(self._scan_results)} movie folders found.")
         self.status.showMessage(f"Scan complete — {len(self._scan_results)} movies found.")
 
     def _on_file_selected(self, item):
-        """Display poster.jpg/png for the selected movie file, if it exists."""
-        # item can come from any column; always read the filename from column 0
+        """Display poster and NFO for the selected movie file, if they exist."""
         media_file = self.file_list.item(item.row(), 0).text()
 
-        # Locate the matching scan result to get its folder
         folder = None
         for m in self._scan_results:
             if m.get("media_file") == media_file:
                 folder = m.get("folder_path") or os.path.dirname(m.get("media_file", ""))
                 break
 
-        # Last-resort fallback: derive from the path string itself
         if not folder:
             folder = os.path.dirname(media_file)
 
-        # Update filename / path labels in the detail panel
         self.detail_filename.setText(os.path.basename(media_file))
-        self.detail_filepath.setText(media_file)
+        self.detail_filepath.setText(folder)
 
-        # Search for a poster image in the movie's folder
+        # Search for a poster image
         poster_path = None
         for name in ("poster.jpg", "poster.jpeg", "poster.png"):
             candidate = os.path.join(folder, name)
             if os.path.isfile(candidate):
                 poster_path = candidate
                 break
+
+        # Load NFO metadata
+        nfo_path = None
+        for name in (os.path.splitext(os.path.basename(media_file))[0] + ".nfo", "movie.nfo"):
+            candidate = os.path.join(folder, name)
+            if os.path.isfile(candidate):
+                nfo_path = candidate
+                break
+
+        if nfo_path:
+            try:
+                with open(nfo_path, "r", encoding="utf-8", errors="replace") as f:
+                    self.detail_metadata.setPlainText(f.read())
+            except Exception as e:
+                self.detail_metadata.clear()
+                self.detail_metadata.setPlaceholderText(f"(could not read NFO: {e})")
+        else:
+            self.detail_metadata.clear()
 
         if poster_path:
             pix = QPixmap(poster_path)
@@ -453,25 +561,76 @@ class MainWindow(QMainWindow):
                     Qt.TransformationMode.SmoothTransformation,
                 )
                 self.detail_poster.setPixmap(scaled)
-                self.detail_poster.setText("")   # clear placeholder text
+                self.detail_poster.setText("")
             else:
                 self._clear_poster("(could not load\nposter image)")
                 self.log(f"WARNING: QPixmap failed to load {poster_path}")
         else:
             self._clear_poster("No poster\nfound")
 
+    def _on_scrape(self):
+        """Scrape TMDB for the currently selected movie."""
+        manual = self.manual_search_input.text().strip()
+
+        selected_items = self.file_list.selectedItems()
+        if selected_items:
+            media_file = self.file_list.item(selected_items[0].row(), 0).text()
+            title, year = parse_title_and_year(os.path.basename(media_file))
+        elif manual:
+            title, year = manual, None
+        else:
+            self.status.showMessage("Select a movie from the list or enter a title before scraping.")
+            return
+
+        # Manual box overrides the parsed title if provided
+        if manual:
+            title, year = manual, None
+
+        self.log(f"Scraping TMDB for: {title}" + (f" ({year})" if year else ""))
+        self.status.showMessage(f"Scraping TMDB for: {title}…")
+        self.progress_bar.setFormat("Fetching search results…")
+        self.progress_bar.setValue(10)
+
+        signals = _WorkerSignals()
+        signals.done.connect(self._on_scrape_done)
+        signals.error.connect(self._on_scrape_error)
+
+        def worker():
+            try:
+                results = search_movies_brief(title, year=year, max_results=8)
+                signals.done.emit(list(results))
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                signals.error.emit(str(e))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_scrape_done(self, results):
+        self._populate_scrape_results(results)
+        self.progress_bar.setValue(100)
+        self.progress_bar.setFormat(f"{len(results)} result(s) returned")
+        self.log(f"Scrape complete — {len(results)} result(s).")
+        self.status.showMessage(f"Scrape complete — {len(results)} result(s).")
+
+    def _on_scrape_error(self, msg):
+        self.progress_bar.setValue(0)
+        self.progress_bar.setFormat("Scrape failed")
+        self.log(f"ERROR during scrape: {msg}")
+        self.status.showMessage(f"Scrape error: {msg}")
+
     def _on_quit(self):
         """Cleanly exit the application."""
         QApplication.quit()
 
     def _on_search(self):
-        """Placeholder search handler — logic to be wired in later phase."""
+        """Manual search box — triggers a scrape using the typed title."""
         title = self.manual_search_input.text().strip()
         if not title:
             self.status.showMessage("Please enter a movie title.")
             return
-        self.status.showMessage(f"Searching for: {title}...")
-        self.activity_log.append(f"> Searching TMDB for: {title}")
+        self.log(f"Manual search: {title}")
+        self._on_scrape()
 
 
 # ── ENTRY POINT ──────────────────────────────────────────────────────────────
