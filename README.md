@@ -1,5 +1,4 @@
-![screenshot](assets/2.png)
-<img src="assets/2.png" width="300" align="center">
+<img src="assets/2.png" width="600" align="center">
 # Project Blueprint (WIP)
 
 > A cross-platform media library manager with an emphasis on user-friendly operation.
