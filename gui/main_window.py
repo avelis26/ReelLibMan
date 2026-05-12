@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (
     QSplitter, QTableWidget, QTableWidgetItem, QHeaderView
 )
 from PyQt6.QtGui import QPixmap, QIcon, QFont
-from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, pyqtSignal, QEvent
 from PyQt6.QtCore import QObject
 from core.scanner import scan_movies
 from api.get_movie_tmdb_api_data import search_movies_brief, parse_title_and_year
@@ -71,6 +71,7 @@ class SplashScreen(QSplashScreen):
         self._anim.finished.connect(on_done)
         self._anim.start()
 
+
 def _nav_btn(label, color, border_color):
     btn = QPushButton(label)
     btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -88,9 +89,11 @@ def _nav_btn(label, color, border_color):
     """)
     return btn
 
+
 class _WorkerSignals(QObject):
     done  = pyqtSignal(list)
     error = pyqtSignal(str)
+
 
 class MainWindow(QMainWindow):
     """Primary application window for ReelLibMan."""
@@ -101,6 +104,8 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1280, 720)
         self.setWindowIcon(QIcon(os.path.join(ASSETS, "1.png")))
         self._scan_results = []
+        self._fs_search_matches = []   # rows matching the current query
+        self._fs_search_idx = -1       # index into _fs_search_matches
         self._build_ui()
         self.showMaximized()
 
@@ -204,8 +209,9 @@ class MainWindow(QMainWindow):
         fs_search_row = QHBoxLayout()
         self.fs_search_input = QLineEdit()
         self.fs_search_input.setPlaceholderText("File system search box")
-        self.fs_search_input.returnPressed.connect(self._on_fs_search)       # Enter triggers search
-        self.fs_search_input.installEventFilter(self)                         # ESC clears input
+        self.fs_search_input.returnPressed.connect(self._on_fs_search)
+        self.fs_search_input.textChanged.connect(self._on_fs_search_reset)
+        self.fs_search_input.installEventFilter(self)
         fs_search_btn = QPushButton("Search")
         fs_search_btn.clicked.connect(self._on_fs_search)
         fs_search_row.addWidget(self.fs_search_input)
@@ -416,7 +422,6 @@ class MainWindow(QMainWindow):
         sig = _WorkerSignals()
         sig.done.connect(lambda _: None)   # unused slot, keeps sig alive
 
-        # Use a dedicated bytes signal via a local QObject
         class _PosterSignals(QObject):
             ready = pyqtSignal(bytes)
             fail  = pyqtSignal()
@@ -434,7 +439,6 @@ class MainWindow(QMainWindow):
                 ps.fail.emit()
 
         threading.Thread(target=worker, daemon=True).start()
-        # Keep ps alive for the thread's lifetime
         self._poster_signals = getattr(self, "_poster_signals", [])
         self._poster_signals.append(ps)
 
@@ -481,11 +485,24 @@ class MainWindow(QMainWindow):
 
     # ── SLOT HANDLERS ────────────────────────────────────────────────────────
 
+    def eventFilter(self, obj, event):
+        """Clear the fs search box when ESC is pressed inside it."""
+        if obj is self.fs_search_input and event.type() == QEvent.Type.KeyPress:
+            if event.key() == Qt.Key.Key_Escape:
+                self.fs_search_input.clear()
+                # textChanged fires automatically, resetting the cycle
+                return True
+        return super().eventFilter(obj, event)
+
+    def _on_fs_search_reset(self):
+        """Called whenever the query text changes — invalidates the current match cycle."""
+        self._fs_search_matches = []
+        self._fs_search_idx = -1
+
     def _on_fs_search(self):
-        """Scroll to and select the first row whose File Name contains the query."""
+        """Cycle through rows whose File Name contains the query, one per Enter/click."""
         query = self.fs_search_input.text().strip().lower()
 
-        # Restore all rows first (no hiding)
         for row in range(self.file_list.rowCount()):
             self.file_list.setRowHidden(row, False)
 
@@ -493,17 +510,31 @@ class MainWindow(QMainWindow):
             self.file_list.clearSelection()
             return
 
-        for row in range(self.file_list.rowCount()):
-            item = self.file_list.item(row, 0)
-            if item and query in item.text().lower():
-                self.file_list.clearSelection()
-                self.file_list.selectRow(row)
-                self.file_list.scrollToItem(item, QTableWidget.ScrollHint.PositionAtTop)
-                return
+        # Build match list only at the start of a fresh search cycle
+        if not self._fs_search_matches:
+            self._fs_search_matches = [
+                row for row in range(self.file_list.rowCount())
+                if (item := self.file_list.item(row, 0)) and query in item.text().lower()
+            ]
+            self._fs_search_idx = -1
 
-        # No match found — clear selection and notify
+        if not self._fs_search_matches:
+            self.file_list.clearSelection()
+            self.status.showMessage(f'No match found for "{self.fs_search_input.text().strip()}"')
+            return
+
+        # Advance to next match, wrapping around
+        self._fs_search_idx = (self._fs_search_idx + 1) % len(self._fs_search_matches)
+        row = self._fs_search_matches[self._fs_search_idx]
         self.file_list.clearSelection()
-        self.status.showMessage(f'No match found for "{self.fs_search_input.text().strip()}"')
+        self.file_list.selectRow(row)
+        self.file_list.scrollToItem(
+            self.file_list.item(row, 0),
+            QTableWidget.ScrollHint.PositionAtTop,
+        )
+        n = len(self._fs_search_matches)
+        i = self._fs_search_idx + 1
+        self.status.showMessage(f'Match {i} of {n} for "{self.fs_search_input.text().strip()}"')
 
     def _on_scan(self):
         """Scan the file system and populate the file list."""
@@ -647,16 +678,6 @@ class MainWindow(QMainWindow):
         self.log(f"Manual search: {title}")
         self._on_scrape()
 
-    def eventFilter(self, obj, event):
-        """Clear the fs search box when ESC is pressed inside it."""
-        from PyQt6.QtCore import QEvent
-        from PyQt6.QtGui import QKeyEvent
-        if obj is self.fs_search_input and event.type() == QEvent.Type.KeyPress:
-            if event.key() == Qt.Key.Key_Escape:
-                self.fs_search_input.clear()
-                self._on_fs_search()          # reset list after clearing
-                return True
-        return super().eventFilter(obj, event)
 
 # ── ENTRY POINT ──────────────────────────────────────────────────────────────
 

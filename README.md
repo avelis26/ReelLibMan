@@ -4,7 +4,7 @@
 > Philosophy: Lean, fast, offline-capable, user-controlled. Linux first, Windows supported.
 
 ---
-
+![Alt Text](assets/screenshot.png)
 ## 0. Dev Set Up
 
 ```fish
