@@ -193,6 +193,8 @@ Library ready for Emby / Jellyfin (online or air-gapped)
 
 ## 12. Assets Used
 
-- **Meta Ai** used to create logo, headline, and other art assets
+- **Meta Ai** used to create 1.png
+- **Grok Ai** used to create 2.png
+- **Krita** used to create and edit ReelLibMan_GUI_Mock_Up.kra and ReelLibMan_GUI_Mock_Up.png
 
 ---
