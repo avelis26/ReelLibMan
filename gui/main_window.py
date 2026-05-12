@@ -497,6 +497,8 @@ class MainWindow(QMainWindow):
         self._scan_results = scan_movies()
         for m in self._scan_results:
             try:
+                if not m.get("media_file", "").strip():
+                    continue
                 row = self.file_list.rowCount()
                 self.file_list.insertRow(row)
                 self.file_list.setItem(row, 0, QTableWidgetItem(m["media_file"]))
@@ -504,7 +506,7 @@ class MainWindow(QMainWindow):
                     self.file_list.setItem(row, col, QTableWidgetItem(""))
             except Exception as e:
                 self.log(f"FAILED: {m['folder_name']} | {e}")
-        self.log(f"Scan complete — {len(self._scan_results)} movies found.")
+        self.log(f"Scan complete — {len(self._scan_results)} movie folders found.")
         self.status.showMessage(f"Scan complete — {len(self._scan_results)} movies found.")
 
     def _on_file_selected(self, item):
