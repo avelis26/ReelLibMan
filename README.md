@@ -1,10 +1,11 @@
-# Reel Library Manager Project Blueprint (WIP)
+![screenshot](assets/2.png)
+# Project Blueprint (WIP)
 
 > A cross-platform media library manager with an emphasis on user-friendly operation.
 > Philosophy: Lean, fast, offline-capable, user-controlled. Linux first, Windows supported.
 
 ---
-![Alt Text](assets/screenshot.png)
+![screenshot](assets/screenshot.png)
 ## 0. Dev Set Up
 
 ```fish
